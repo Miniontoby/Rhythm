@@ -17,7 +17,8 @@ This document details the technical architecture and libraries used in Rhythm Mu
 
 | Technology | Version | Purpose |
 |:---|:---:|:---|
-| **Media3 ExoPlayer** | 1.9.0 | Professional-grade media playback engine |
+| **Media3 ExoPlayer** | 1.9.2 | Professional-grade media playback engine |
+| **FFmpeg Decoder** | 1.9.0+1 | Extended codec support (EAC3-JOC, AC-3, WMA) |
 | **MediaStore API** | Latest | Android media content provider |
 | **AudioFocus** | Latest | Audio focus management for calls/notifications |
 
@@ -246,7 +247,8 @@ class MusicRepositoryImpl(
 │                                     │
 │  ┌──────────────────────────────┐  │
 │  │      ExoPlayer               │  │
-│  │  • Media3 ExoPlayer 1.9.0    │  │
+│  │  • Media3 ExoPlayer 1.9.2    │  │
+│  │  • FFmpeg decoder extension  │  │
 │  │  • Gapless playback          │  │
 │  │  • Audio focus handling      │  │
 │  └──────────────────────────────┘  │

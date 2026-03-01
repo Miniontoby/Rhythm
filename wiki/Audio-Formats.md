@@ -1,6 +1,6 @@
 # Audio Format Support
 
-Rhythm uses **Media3 ExoPlayer 1.9.0** for professional-grade audio playback. This page details supported formats, technical limitations, and recommendations.
+Rhythm uses **Media3 ExoPlayer 1.9.2 + FFmpeg Decoder** for professional-grade audio playback. This page details supported formats, technical limitations, and recommendations.
 
 ---
 
@@ -21,17 +21,29 @@ These formats work out-of-the-box on all supported Android devices:
 
 ---
 
+## 🎬 FFmpeg-Decoded Formats
+
+These formats are decoded by the bundled FFmpeg extension (available in all builds):
+
+| Format | Container | Notes |
+|:---:|:---:|:---|
+| **EAC3-JOC (Dolby Atmos)** | `.eac3`, `.m4a`, `.mkv` | Decoded via FFmpeg; stereo/surround output |
+| **AC-3 (Dolby Digital)** | `.ac3`, `.m4a` | Decoded via FFmpeg extension |
+| **WMA** | `.wma` | Decoded via FFmpeg extension |
+
+---
+
 ## ⚠️ Device-Dependent Formats
 
 These formats require hardware support and may not work on all devices:
 
 | Format | Container | Notes |
 |:---:|:---:|:---|
-| **Dolby Digital (AC-3)** | `.ac3`, `.m4a` | Requires compatible device/hardware decoder |
-| **Dolby Digital Plus (E-AC-3)** | `.eac3`, `.m4a` | Requires compatible device/hardware decoder |
+| **Dolby Digital (AC-3)** | `.ac3`, `.m4a` | Also decoded via FFmpeg extension in Rhythm |
+| **Dolby Digital Plus (E-AC-3)** | `.eac3`, `.m4a` | Also decoded via FFmpeg (EAC3-JOC/Atmos supported) |
 | **DTS** | `.dts`, `.m4a` | Requires compatible device/hardware decoder |
-| **Dolby Atmos** | Various | Requires Atmos-compatible device and headphones/speakers |
-| **WMA** | `.wma` | May require device-specific codecs (varies by manufacturer) |
+| **Dolby Atmos** | Various | EAC3-JOC decoded via FFmpeg; full Atmos requires hardware |
+| **WMA** | `.wma` | Also decoded via FFmpeg extension in Rhythm |
 
 ### Checking Device Compatibility
 
@@ -95,6 +107,7 @@ Rhythm identifies the **actual codec** inside, not just the container.
 - **Channel Configuration**: Stereo universally supported, multi-channel varies
 
 ### ExoPlayer Capabilities
+- **ExoPlayer 1.9.2 + FFmpeg**: Adds EAC3-JOC, AC-3, WMA decoding beyond ExoPlayer defaults
 - **Gapless Playback**: Supported for MP3, AAC, FLAC, Opus
 - **Seeking**: Accurate for most formats, approximate for some streaming codecs
 - **Metadata**: Depends on container format (ID3 for MP3, Vorbis comments for FLAC)

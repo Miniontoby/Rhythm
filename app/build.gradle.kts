@@ -16,8 +16,8 @@ android {
         applicationId = "chromahub.rhythm.app"
         minSdk = 26
         targetSdk = 36
-        versionCode = 42332902
-        versionName = "4.2.332.902"
+        versionCode = 42334905
+        versionName = "4.2.334.905"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -74,12 +74,12 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
-//            isShrinkResources = true
-//            proguardFiles(
-//                getDefaultProguardFile("proguard-android-optimize.txt"),
-//                "proguard-rules.pro"
-//            )
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
             signingConfig = releaseSigning
 //            ndk {
 //                debugSymbolLevel = "SYMBOL_TABLE"
@@ -133,6 +133,16 @@ android {
         resources {
             merges += "/META-INF/INDEX.LIST"
             merges += "**/io.netty.versions.properties"
+        }
+    }
+
+    // ABI splits: create smaller per-architecture APKs (reduces size by ~5–10 MB each)
+    splits {
+        abi {
+            isEnable = true
+            reset()
+            include("arm64-v8a", "armeabi-v7a", "x86_64", "x86")
+            isUniversalApk = true // also keep a universal APK for IzzyOnDroid/F-Droid
         }
     }
 

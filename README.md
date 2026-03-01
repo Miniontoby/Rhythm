@@ -32,17 +32,19 @@
 
 ## 🎵 About Rhythm
 
-Rhythm is a modern, open-source music player for Android built with Material 3 design and powered by Media3 ExoPlayer. Experience professional-grade audio playback with beautiful UI, intelligent features, and complete privacy.
+Rhythm is a modern, open-source music player for Android built with **Material 3 Expressive** design and powered by Media3 ExoPlayer 1.9.2. Now at **v4.2**, Rhythm delivers professional-grade audio with Bit Perfect playback, EAC3-JOC/Dolby Atmos via FFmpeg, a refined expressive UI, multi-select batch library actions, and complete privacy.
 
 ### ✨ Key Features
 
 - 🎨 **Material You** - Dynamic theming with wallpaper colors (Android 12+)
-- 🎵 **Professional Audio** - Media3 ExoPlayer 1.9.0 with gapless playback
+- 🎵 **Professional Audio** - Media3 ExoPlayer with gapless playback, Bit Perfect mode & EAC3-JOC support
 - 🎤 **Synced Lyrics** - LRCLib integration with word-by-word highlighting
 - 🎛️ **10-Band EQ** - Professional equalizer with 6032+ AutoEQ device presets
 - 📊 **Playback Stats** - Comprehensive listening statistics and insights
 - 📱 **Modern Widgets** - Multiple responsive layouts with Material 3 design
-- 🎯 **Format Support** - FLAC, ALAC, MP3, AAC, Opus, WAV, and more
+- 🎯 **Format Support** - FLAC, ALAC, MP3, AAC, EAC3-JOC, Opus, WAV, OGG, and more
+- 📂 **Multi-Select** - Batch operations across songs, albums, and playlists
+- 🔮 **Expressive UI** - Refined adaptive shapes, components & Material 3 Expressive design
 - 🔒 **Privacy First** - 100% FOSS, no tracking, offline-capable
 
 **System Requirements:** Android 8.0+ (API 26) • 2GB RAM • 50MB Storage
@@ -112,9 +114,9 @@ Rhythm is a modern, open-source music player for Android built with Material 3 d
 - **[IzzyOnDroid](https://apt.izzysoft.de/fdroid/index/apk/chromahub.rhythm.app)** - F-Droid repository for privacy-focused users (full features)
 - **[GitHub Releases](https://github.com/cromaguy/Rhythm/releases/latest)** - Direct APK download (full features)
 - **[Obtainium](https://apps.obtainium.imranr.dev/redirect?r=obtainium://add/https://github.com/cromaguy/Rhythm/)** - Auto-updates from GitHub (full features)
-- **Google Play Store** - *Coming soon!* (policy-compliant version with Deezer, LRCLib, and Spotify Search)
+- **Google Play Store** - *Coming soon!* (policy-compliant version)
 
-> **Note:** F-Droid, IzzyOnDroid, and GitHub releases include all features. The Google Play version excludes unofficial APIs for policy compliance. See [Build Variants](docs/BUILD_VARIANTS.md) for details.
+> **Note:** F-Droid, IzzyOnDroid, and GitHub releases include all features including Deezer & YouTube Music artwork, LRCLib lyrics, and YouTube Music search. See [Build Variants](docs/BUILD_VARIANTS.md) for details.
 
 📖 **Detailed installation guide:** See the [Installation Wiki](https://github.com/cromaguy/Rhythm/wiki/Installation-Guide)
 
@@ -137,7 +139,8 @@ Complete documentation is available in our [**Wiki**](https://github.com/cromagu
 | Category | Technology |
 |:---|:---|
 | **UI Framework** | Jetpack Compose + Material 3 + Glance Widgets |
-| **Audio Engine** | Media3 ExoPlayer 1.9.0 + FFmpeg Decoder |
+| **Audio Engine** | Media3 ExoPlayer 1.9.2 + FFmpeg Decoder + Bit Perfect |
+| **Build System** | AGP 8.13.2 + Kotlin 2.3.10 |
 | **Database** | Room + SQLite |
 | **Networking** | Retrofit + OkHttp + Ktor |
 | **Image Processing** | Coil + AndroidX Palette |
@@ -177,7 +180,7 @@ We welcome contributions! See [CONTRIBUTING.md](https://github.com/cromaguy/Rhyt
 ### Contributors
 - **[Izzy](https://github.com/IzzySoft)** - IzzyOnDroid repository management
 - **[theovilardo](https://github.com/theovilardo)** - Project PixelPlayer collaboration & Lead Dev
-- **[Alex](https://github.com/Paxsenix0)** - Spotify Canvas API integration
+- **[Alex](https://github.com/Paxsenix0)** - Network API integrations & contributions
 - **[nikutow](https://github.com/nikutow)** - Contributor
 
 ### Special Thanks
@@ -231,6 +234,6 @@ This project is licensed under the **GNU General Public License v3.0**. See [LIC
 
 <br>
 
-<sub>© 2025 Team ChromaHub. All rights reserved. Licensed under GNU General Public License v3.0.</sub>
+<sub>© 2026 Team ChromaHub. All rights reserved. Licensed under GNU General Public License v3.0.</sub>
 
 </div>

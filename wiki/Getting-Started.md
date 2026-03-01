@@ -76,7 +76,7 @@ Set up home screen widgets:
 Connect external services:
 - **Last.fm Scrobbling**: Track your listening history
 - **Discord Rich Presence**: Show what you're listening to
-- **API Services**: Spotify Canvas, Deezer, Apple Music integration
+- **API Services**: Deezer (artwork), YouTube Music (artwork), LRCLib (lyrics)
 - **Status Broadcasting**: Share playback status with other apps
 
 ### Step 12: Rhythm Stats 📊

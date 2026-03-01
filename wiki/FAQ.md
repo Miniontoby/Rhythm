@@ -14,7 +14,7 @@ Download from:
 
 ### Is Rhythm available on Google Play Store?
 
-No, Rhythm is distributed through GitHub and alternative app stores. This keeps the app completely free and open source without Google Play requirements.
+Yes — very soon! Rhythm is coming to the Google Play Store. Currently it's distributed through GitHub, F-Droid, IzzyOnDroid, and Obtainium while Play Store review is finalized.
 
 ### How do I update Rhythm?
 
@@ -169,7 +169,7 @@ Yes! Full playlist support:
 
 ### Does Rhythm support Android Auto?
 
-Planned for future release.
+Yes! Android Auto is supported in Rhythm.
 
 ### Is there a widget?
 
@@ -239,6 +239,7 @@ LRCLib is a community-driven synced lyrics database. Rhythm fetches synchronized
 Only for optional features:
 - **LRCLib** - Synced lyrics
 - **Deezer API** - Album artwork
+- **YouTube Music API** - Album artwork lookup
 - **GitHub** - Update checking
 
 You can block internet (via firewall) for completely offline use.
@@ -342,7 +343,7 @@ Yes, Rhythm works in split-screen/multi-window mode.
 
 ### Is Android Auto support planned?
 
-Yes, it's on the roadmap!
+Android Auto is already supported in Rhythm!
 
 ### Will there be a desktop version?
 

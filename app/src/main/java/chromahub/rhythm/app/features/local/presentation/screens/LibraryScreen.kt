@@ -3026,9 +3026,11 @@ fun SingleCardAlbumsContent(
                                 ExpressiveFilledIconButton(
                                     onClick = {
                                         HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
-                                        val allSongs = preparedAlbums.flatMap { it.songs }
+                                        // Shuffle album order but keep each album's songs in their correct order
+                                        val shuffledAlbums = preparedAlbums.shuffled()
+                                        val allSongs = shuffledAlbums.flatMap { it.songs }
                                         if (allSongs.isNotEmpty()) {
-                                            onShuffleQueue(allSongs)
+                                            onPlayQueue(allSongs)
                                         }
                                     },
                                     modifier = Modifier.size(44.dp),
@@ -3130,9 +3132,11 @@ fun SingleCardAlbumsContent(
                                             haptics,
                                             HapticFeedbackType.LongPress
                                         )
-                                        val allSongs = preparedAlbums.flatMap { it.songs }
+                                        // Shuffle album order but keep each album's songs in their correct order
+                                        val shuffledAlbums = preparedAlbums.shuffled()
+                                        val allSongs = shuffledAlbums.flatMap { it.songs }
                                         if (allSongs.isNotEmpty()) {
-                                            onShuffleQueue(allSongs)
+                                            onPlayQueue(allSongs)
                                         }
                                     },
                                     modifier = Modifier.size(44.dp),

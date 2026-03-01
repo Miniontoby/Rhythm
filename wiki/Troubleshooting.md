@@ -40,6 +40,7 @@ Before diving into specific issues, try these general fixes:
 4. **Re-scan media:**
    - Rhythm → Settings → Library → Rescan Media
    - Wait for scan to complete
+   - **v4.2+:** Rhythm now performs a **full scan** (not incremental), so a rescan after moving/adding files should reliably pick up all songs
 
 ### Notification Controls Not Working
 

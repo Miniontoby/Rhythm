@@ -198,7 +198,7 @@
                             <li><strong>Media Audio/Images:</strong> Access to music library and artwork (Android 13+)</li>
                             <li><strong>Notifications:</strong> Playback controls, update alerts, and media session</li>
                             <li><strong>Bluetooth:</strong> Wireless speaker/headphone support and device switching</li>
-                            <li><strong>Internet:</strong> LRCLib lyrics, Deezer artwork, GitHub updates, Spotify Canvas</li>
+                            <li><strong>Internet:</strong> LRCLib lyrics, Deezer/YouTube Music artwork, GitHub updates</li>
                             <li><strong>Audio Settings:</strong> Volume control and audio focus management</li>
                             <li><strong>Install Packages:</strong> In-app APK updates and installations</li>
                             <li><strong>Media Playback Service:</strong> Background playback and lock screen controls</li>
@@ -208,13 +208,17 @@
                         <h3>Material You Dynamic Theming</h3>
                         <p>Android 12+ users get automatic color extraction from wallpaper. Choose from light/dark modes or system default. Custom color schemes available in Settings → Appearance → Theme Customization for personalized theming.</p>
                     </div>
+                    <div class="help-item">
+                        <h3>What's New in v4.2 (Expressive Update)</h3>
+                        <p>Rhythm 4.2 brings a major visual and audio refresh. New <strong>Material 3 Expressive</strong> shapes and components throughout the UI. <strong>Bit Perfect playback</strong> mode for DAC users. <strong>EAC3-JOC/Dolby Atmos</strong> codec support via FFmpeg decoder. <strong>Multi-select batch actions</strong> across Songs, Albums, and Playlists. Album shuffle queues full albums in random order. Full media scanner replaces incremental scans for reliability. Scroll position and playlist sort now persist across sessions.</p>
+                    </div>
                 </div>
 
                 <div id="playing-music" class="help-category">
                     <h2><i class="fas fa-music"></i> Playing Music</h2>
                     <div class="help-item">
                         <h3>Professional Media3 ExoPlayer Engine</h3>
-                        <p>Rhythm uses Google's Media3 ExoPlayer for studio-quality audio with gapless playback, perfect track transitions, and robust error handling. Supports high-resolution formats including FLAC, ALAC, MP3, AAC, OGG, WAV, and more with bit-perfect playback.</p>
+                        <p>Rhythm uses Google's Media3 ExoPlayer 1.9.2 + FFmpeg decoder for studio-quality audio with gapless playback and perfect track transitions. Supports FLAC, ALAC, MP3, AAC, OGG, WAV, Opus, EAC3-JOC/Dolby Atmos (via FFmpeg), and more. Enable <strong>Bit Perfect mode</strong> in Settings → Audio to bypass Android system processing for the purest possible output to your DAC or headphone amp.</p>
                     </div>
                     <div class="help-item">
                         <h3>Advanced Playback Features</h3>
@@ -222,7 +226,7 @@
                             <li><strong>Auto-Resume:</strong> Continues playback at exact position after app restart or device reboot</li>
                             <li><strong>Smart Audio Focus:</strong> Handles phone calls, notifications, and other apps gracefully</li>
                             <li><strong>Gapless Playback:</strong> Seamless transitions between tracks without silence</li>
-                            <li><strong>Spotify Canvas:</strong> Dynamic animated backgrounds for compatible tracks</li>
+                            <li><strong>Multi-Select Batch Actions:</strong> Select multiple songs/albums/playlists to queue, share, or delete at once</li>
                             <li><strong>Advanced Shuffle:</strong> True random, artist-aware, and weighted shuffle algorithms</li>
                             <li><strong>Queue Management:</strong> Reorder, remove, and save playback queues with action dialogs</li>
                             <li><strong>Active Song Highlighting:</strong> Visual indicators for currently playing tracks in lists</li>
@@ -230,7 +234,7 @@
                     </div>
                     <div class="help-item">
                         <h3>Synchronized Lyrics with Advanced Features</h3>
-                        <p>Real-time lyrics with community-driven LRCLib integration. Word-by-word highlighting for karaoke-style experience, tap timestamps to seek, auto-scroll during playback, and manual reload option. Sync adjustment controls for lyrics that are off-beat. Supports multiple languages, OGG/Vorbis embedded lyrics, and synchronized highlighting. Configure API endpoints in Settings → Advanced → API Management.</p>
+                        <p>Real-time lyrics with community-driven LRCLib integration. Word-by-word highlighting for karaoke-style experience, tap timestamps to seek, auto-scroll during playback, and manual reload option. Sync adjustment controls for lyrics that are off-beat. Supports multiple languages, OGG/Vorbis embedded lyrics, and synchronized highlighting. Use the built-in lyrics editor to adjust sync offsets and save per-track. Configure API endpoints in Settings → Advanced → API Management.</p>
                     </div>
                     <div class="help-item">
                         <h3>Professional 10-Band Equalizer with AutoEQ</h3>
@@ -263,11 +267,11 @@
                     <div class="help-item">
                         <h3>Advanced Media Scanning</h3>
                         <ul>
-                            <li><strong>Automatic Scanning:</strong> Background scanning on app launch and updates</li>
+                            <li><strong>Full Scan Mode:</strong> Rhythm v4.2 now performs a full scan every time to ensure no songs are ever missed after library changes</li>
                             <li><strong>Whitelist Mode:</strong> Include only specified folders for precise control</li>
                             <li><strong>Blacklist Mode:</strong> Exclude unwanted directories and system folders</li>
                             <li><strong>Explorer Integration:</strong> Manual folder browsing and selective adding</li>
-                            <li><strong>Real-time Updates:</strong> Automatic library refresh when files change</li>
+                            <li><strong>Real-time Updates:</strong> Trigger a rescan from Settings → Library → Rescan Media</li>
                         </ul>
                     </div>
                     <div class="help-item">
@@ -275,12 +279,16 @@
                         <p>Create, edit, delete, and organize playlists with drag-and-drop reordering, sorting, and multi-select removal. Import/export in M3U, PLS, and other formats. Smart playlist suggestions based on listening habits. Backup and restore playlist collections. Choose between grid and list views for playlist browsing.</p>
                     </div>
                     <div class="help-item">
+                        <h3>Multi-Select Batch Operations</h3>
+                        <p>Long-press any song, album, or playlist item to enter multi-select mode. Select as many items as you want, then choose from batch actions: Add to Queue, Play Next, Add to Playlist, Share, or Delete. Makes managing large libraries effortless.</p>
+                    </div>
+                    <div class="help-item">
                         <h3>Rich Metadata & Artwork Editing</h3>
-                        <p>View and edit comprehensive song metadata including title, artist, album, genre, year, and track number. Edit album artwork with permission handling. Batch metadata operations and automatic high-quality artwork fetching from Deezer.</p>
+                        <p>View and edit comprehensive song metadata including title, artist, album, genre, year, and track number. Edit album artwork with permission handling. Metadata changes now propagate across all screens (fixed in v4.2). Artwork fetched automatically from Deezer.</p>
                     </div>
                     <div class="help-item">
                         <h3>Album Art & Visual Features</h3>
-                        <p>Automatic high-quality album art fetching from Deezer database. Color extraction for dynamic theming. Support for embedded artwork and external image files. Smart fallback logos for missing artwork.</p>
+                        <p>Automatic high-quality album art fetching from Deezer and YouTube Music. Color extraction for dynamic theming. Support for embedded artwork and external image files. Smart fallback logos for missing artwork.</p>
                     </div>
                 </div>
 
@@ -340,11 +348,11 @@
                     </div>
                     <div class="help-item">
                         <h3>API Management & Configuration</h3>
-                        <p>Configure API endpoints for lyrics (LRCLib) and artwork (Deezer). Set custom API keys, manage rate limits, and switch between community and personal API services. Advanced network configuration options.</p>
+                        <p>Configure API endpoints for lyrics (LRCLib) and artwork (Deezer, YouTube Music). Set custom API keys, manage rate limits, and switch between community and personal API services. Enable or disable individual APIs in Settings → Advanced → API Management.</p>
                     </div>
                     <div class="help-item">
                         <h3>Intelligent Cache Management</h3>
-                        <p>Advanced cache system with manual controls and performance monitoring. Separate caches for artwork, lyrics, and Canvas visuals. Automatic cleanup, size limits, and cache refresh options. Monitor storage usage and optimize performance.</p>
+                        <p>Advanced cache system with manual controls and performance monitoring. Separate caches for artwork and lyrics. Automatic cleanup, size limits, and cache refresh options. Monitor storage usage and optimize performance.</p>
                     </div>
                     <div class="help-item">
                         <h3>Auto-Updates & Beta Program</h3>
@@ -376,7 +384,7 @@
                     <h2><i class="fas fa-question-circle"></i> Troubleshooting</h2>
                     <div class="help-item">
                         <h3>Music Not Showing in Library</h3>
-                        <p>Rescan media in Settings → Library. Check whitelist/blacklist settings. Use Explorer to manually add folders. Ensure files aren't corrupted or in unsupported formats.</p>
+                        <p>Go to Settings → Library → Rescan Media. Rhythm v4.2 now performs full scans (not incremental), so a rescan should pick up all missing songs. Check whitelist/blacklist settings. Use Explorer to manually add folders. If songs were added to an existing folder, a full rescan resolves the issue.</p>
                     </div>
                     <div class="help-item">
                         <h3>Permission & Storage Issues</h3>

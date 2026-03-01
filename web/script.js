@@ -380,6 +380,53 @@ const updateData = {
             <p><strong>🎉 Thank you for being part of this incredible journey! Grab 3.1, crank up the volume, and let's make some noise! Happy listening, Rhythm fam! 🎵✨</strong></p>
         `
     },
+    update10: {
+        image: "assets/Banner.png",
+        headline: "4.2 Stable is Here: The Expressive Update! 🎨🎵",
+        date: "March 1, 2026",
+        writer: "Anjishnu Nandi",
+        details: `
+            <p>🎉 <strong>Rhythm 4.2 Stable is live</strong> — and it's our most polished release yet! This update focuses on expressive design, audiophile-grade audio, library power features, and rock-solid stability. Let's dive in!</p>
+
+            <h3>🎨 Expressive UI Refresh</h3>
+            <p>Material 3 Expressive is here. Rhythm 4.2 brings redesigned shapes, adaptive components, and refined motion throughout the entire app — from the player to library cards to bottom sheets. Every screen feels more vibrant and alive.</p>
+
+            <h3>🔊 Audiophile-Grade Playback</h3>
+            <ul>
+                <li><strong>Bit Perfect Mode</strong> — Send audio bit-for-bit to your DAC or audio hardware, bypassing all Android processing for the purest possible sound</li>
+                <li><strong>EAC3-JOC Decoder</strong> — Full support for Dolby Atmos / EAC3-JOC encoded files</li>
+                <li><strong>Extended Codec Coverage</strong> — Improved ALAC, OGG, and more with the updated FFmpeg decoder integration</li>
+            </ul>
+
+            <h3>📚 Library Power Features</h3>
+            <ul>
+                <li><strong>Multi-Select Actions</strong> — Select multiple songs, albums, or playlists and perform batch operations: add to queue, move, delete, share, and more</li>
+                <li><strong>Shuffle Whole Albums</strong> — The album shuffle button now queues complete albums in sequence, randomly ordered — perfect for album enthusiasts who love discovering new listens</li>
+                <li><strong>Playlist Sort Persistence</strong> — Your playlist sort preferences are now remembered between sessions</li>
+                <li><strong>Scroll Position Memory</strong> — The Songs tab restores your scroll position after navigating away and coming back</li>
+            </ul>
+
+            <h3>🐛 Fixes & Stability</h3>
+            <ul>
+                <li><strong>Queue Reliability</strong> — Fixed queue operations that were breaking across multiple screens</li>
+                <li><strong>Metadata Editor</strong> — Changes now properly propagate and persist across all screens</li>
+                <li><strong>Splash Screen Loop</strong> — Fixed the unnecessary splash screen restart when returning to the app while music was playing</li>
+                <li><strong>Media Scanner</strong> — Switched from incremental to full scans to fix the long-standing issue where newly added songs weren't showing up after library modifications</li>
+                <li><strong>Faster Load Times</strong> — System startup is noticeably faster thanks to initialization optimizations</li>
+                <li><strong>Many more crash fixes, UI polish, and performance improvements throughout the app</strong></li>
+            </ul>
+
+            <h3>📦 Build Info</h3>
+            <ul>
+                <li><strong>Version:</strong> 4.2.334.905</li>
+                <li><strong>Type:</strong> Stable Release</li>
+                <li><strong>Min Android:</strong> 8.0 (API 26)</li>
+            </ul>
+
+            <p>📥 <strong>Download now from <a href="https://github.com/cromaguy/Rhythm/releases/latest" target="_blank">GitHub Releases</a>, F-Droid, or IzzyOnDroid.</strong></p>
+            <p>Thanks for being part of Rhythm — your feedback shapes every release. Keep the music playing! 🎵</p>
+        `
+    },
     update9: {
         image: "assets/Banner.png",
         headline: "Rhythm is Coming to Google Play Store! 📱🎉",

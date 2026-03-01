@@ -9,8 +9,8 @@ Complete guide to all features and capabilities in Rhythm Music Player.
 ### Professional Media3 ExoPlayer Engine
 - **Gapless Playback**: Seamless transitions between tracks
 - **High-Resolution Audio**: Support for FLAC, ALAC, WAV up to 192kHz/24-bit
-- **Format Support**: MP3, AAC, Opus, Vorbis, and more
-- **Bit-Perfect Playback**: Lossless audio reproduction
+- **Format Support**: MP3, AAC, Opus, Vorbis, EAC3-JOC (Dolby Atmos) via FFmpeg, and more
+- **Bit Perfect Mode**: Bypass Android audio processing for purest output to DAC/amp
 - **Smart Buffering**: Optimized for smooth playback
 
 ### Advanced Playback Controls
@@ -27,6 +27,7 @@ Complete guide to all features and capabilities in Rhythm Music Player.
 ## 🎨 Material You Design
 
 ### Dynamic Theming
+- **Material 3 Expressive**: Updated adaptive shapes, fluid motion, and refined components (v4.2+)
 - **Material You**: Automatic color extraction from wallpaper (Android 12+)
 - **Light/Dark Modes**: System, light, or dark theme
 - **Custom Color Schemes**: Create personalized palettes
@@ -189,9 +190,11 @@ Complete guide to all features and capabilities in Rhythm Music Player.
 - Background update checks
 
 ### Optional Integrations
-- Spotify Canvas support (visual artwork)
-- Last.fm scrobbling (planned)
-- Discord Rich Presence (planned)
+- **Deezer** — high-quality album artwork fetching
+- **YouTube Music** — additional artwork lookup
+- **LRCLib** — community synced lyrics database
+- Last.fm scrobbling
+- Discord Rich Presence
 
 ---
 
@@ -349,14 +352,12 @@ Complete guide to all features and capabilities in Rhythm Music Player.
 
 ## 🔮 Upcoming Features
 
-### Planned
-- Android Auto support
+### In Development / Planned
 - Desktop companion app
 - Cloud sync
 - Collaborative playlists
 - Advanced visualizations
 - Podcast support
-- Radio/streaming integration
 
 ---
 
