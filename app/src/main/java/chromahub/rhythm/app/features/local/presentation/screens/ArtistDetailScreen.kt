@@ -95,12 +95,21 @@ fun ArtistDetailScreen(
     // Helper function to split artist names
     val splitArtistNames: (String) -> List<String> = remember {
         { artistNameStr ->
-            val separators = listOf(
+            // Character-level delimiters from settings
+            val artistSeparatorEnabled = appSettings.artistSeparatorEnabled.value
+            val charDelimiters = if (artistSeparatorEnabled) {
+                appSettings.artistSeparatorDelimiters.value.toList().map { it.toString() }
+            } else emptyList()
+            
+            val wordSeparators = listOf(
                 " & ", " and ", ", ", " feat. ", " feat ", " ft. ", " ft ",
                 " featuring ", " x ", " X ", " vs ", " vs. ", " with "
             )
             var names = listOf(artistNameStr)
-            for (separator in separators) {
+            for (delimiter in charDelimiters) {
+                names = names.flatMap { it.split(delimiter) }
+            }
+            for (separator in wordSeparators) {
                 names = names.flatMap { it.split(separator, ignoreCase = true) }
             }
             names.map { it.trim() }.filter { it.isNotBlank() }

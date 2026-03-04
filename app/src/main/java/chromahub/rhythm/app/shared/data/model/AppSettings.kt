@@ -560,19 +560,28 @@ class AppSettings private constructor(context: Context) {
     val libraryTabOrder: StateFlow<List<String>> = _libraryTabOrder.asStateFlow()
     
     // Player Chip Order (Add to Playlist and Edit chips are not reorderable - they stay fixed)
-    private val defaultChipOrder = listOf("FAVORITE", "SPEED", "EQUALIZER", "SLEEP_TIMER", "LYRICS", "ALBUM", "ARTIST", "CAST")
+    private val defaultChipOrder = listOf("FAVORITE", "SPEED", "PITCH", "EQUALIZER", "SLEEP_TIMER", "LYRICS", "ALBUM", "ARTIST", "CAST")
     private val _playerChipOrder = MutableStateFlow(
         prefs.getString(KEY_PLAYER_CHIP_ORDER, null)
             ?.split(",")
             ?.filter { it.isNotBlank() }
             ?.takeIf { it.isNotEmpty() }
             ?.let { existingChips ->
-                // Add CAST if not present in existing order
-                if (!existingChips.contains("CAST")) {
-                    existingChips + "CAST"
-                } else {
-                    existingChips
+                // Add new chips if not present in existing order
+                var updated = existingChips
+                if (!updated.contains("CAST")) {
+                    updated = updated + "CAST"
                 }
+                if (!updated.contains("PITCH")) {
+                    // Insert PITCH right after SPEED if SPEED exists, else append
+                    val speedIndex = updated.indexOf("SPEED")
+                    updated = if (speedIndex >= 0) {
+                        updated.toMutableList().apply { add(speedIndex + 1, "PITCH") }
+                    } else {
+                        updated + "PITCH"
+                    }
+                }
+                updated
             }
             ?: defaultChipOrder
     )
@@ -1444,6 +1453,10 @@ private val _autoCheckForUpdates = MutableStateFlow(prefs.getBoolean(KEY_AUTO_CH
     fun setLosslessArtwork(enabled: Boolean) {
         prefs.edit().putBoolean(KEY_LOSSLESS_ARTWORK, enabled).apply()
         _losslessArtwork.value = enabled
+        // Lossless artwork requires ignoring MediaStore covers to take effect
+        if (enabled && !_ignoreMediaStoreCovers.value) {
+            setIgnoreMediaStoreCovers(true)
+        }
     }
     
     fun setShowAlphabetBar(show: Boolean) {

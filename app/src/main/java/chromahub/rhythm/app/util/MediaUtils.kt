@@ -51,6 +51,16 @@ data class PendingWriteRequest(
 )
 
 /**
+ * Data class representing a pending lyrics write request for Android 11+
+ */
+data class PendingLyricsWriteRequest(
+    val intentSender: IntentSender,
+    val song: Song,
+    val lyrics: String,
+    val tempFilePath: String
+)
+
+/**
  * Utility class for handling media-related operations
  */
 object MediaUtils {
@@ -133,17 +143,8 @@ object MediaUtils {
                             cursor.getLong(albumIdIndex)
                         )
 
-                        // Parse multiple artists from the artist string
-                        val rawArtist = cursor.getString(artistIndex)
-                        val appSettings =
-                            chromahub.rhythm.app.shared.data.model.AppSettings.getInstance(context)
-                        val artistSeparatorEnabled = appSettings.artistSeparatorEnabled.value
-                        val delimiters = appSettings.artistSeparatorDelimiters.value
-                        val artist = ArtistSeparator.getPrimaryArtist(
-                            rawArtist,
-                            delimiters,
-                            artistSeparatorEnabled
-                        )
+                        // Keep full artist string so songs appear under all their artists
+                        val artist = cursor.getString(artistIndex) ?: "Unknown Artist"
 
                         Log.d(TAG, "Found matching song in MediaStore with ID: $id")
 
@@ -261,16 +262,8 @@ object MediaUtils {
                 title = extractedTitle ?: title ?: uri.lastPathSegment?.substringBeforeLast(".")
                         ?: "Unknown"
 
-                // Parse multiple artists from the artist string using configured delimiters
-                val rawArtist = extractedArtist ?: "Unknown Artist"
-                val appSettings =
-                    chromahub.rhythm.app.shared.data.model.AppSettings.getInstance(context)
-                val artistSeparatorEnabled = appSettings.artistSeparatorEnabled.value
-                val delimiters = appSettings.artistSeparatorDelimiters.value
-
-                // Get primary artist for display (first artist in the list)
-                artist =
-                    ArtistSeparator.getPrimaryArtist(rawArtist, delimiters, artistSeparatorEnabled)
+                // Keep full artist string so songs appear under all their artists
+                artist = extractedArtist ?: "Unknown Artist"
 
                 album = extractedAlbum ?: "Unknown Album"
                 duration = extractedDuration?.toLongOrNull() ?: 0L
@@ -292,19 +285,21 @@ object MediaUtils {
                 genre = null
             }
 
-            // Extract album art
+            // Extract album art — write raw bytes directly to preserve quality
             val embeddedArt = retriever.embeddedPicture
             if (embeddedArt != null) {
-                // Save embedded artwork to cache
                 try {
-                    val artworkFile = File(context.cacheDir, "artwork_${uri.hashCode()}.jpg")
-                    FileOutputStream(artworkFile).use { out ->
-                        val bitmap = BitmapFactory.decodeByteArray(embeddedArt, 0, embeddedArt.size)
-                        bitmap.compress(Bitmap.CompressFormat.JPEG, 90, out)
-                        out.flush()
+                    // Detect format from magic bytes
+                    val isJpeg = embeddedArt.size >= 2 && embeddedArt[0] == 0xFF.toByte() && embeddedArt[1] == 0xD8.toByte()
+                    val ext = if (isJpeg) "jpg" else "png"
+                    val artworkFile = File(context.cacheDir, "artwork_${uri.hashCode()}.$ext")
+                    if (!artworkFile.exists()) {
+                        FileOutputStream(artworkFile).use { out ->
+                            out.write(embeddedArt)
+                            out.flush()
+                        }
                     }
                     artworkUri = artworkFile.toUri()
-                    Log.d(TAG, "Saved embedded artwork to: $artworkUri")
                 } catch (e: Exception) {
                     Log.e(TAG, "Failed to save embedded artwork", e)
                 }
@@ -884,6 +879,149 @@ object MediaUtils {
         } catch (e: Exception) {
             Log.e(TAG, "Error embedding lyrics into file", e)
             false
+        }
+    }
+
+    /**
+     * Creates a write request for Android 11+ to get permission to embed lyrics in a file
+     */
+    @androidx.annotation.RequiresApi(android.os.Build.VERSION_CODES.R)
+    fun createWriteRequestForLyrics(
+        context: Context,
+        song: Song,
+        lyrics: String
+    ): PendingLyricsWriteRequest? {
+        return try {
+            val contentResolver = context.contentResolver
+            Log.d(TAG, "Creating lyrics write request for song: ${song.title}")
+
+            val urisToModify = listOf(song.uri)
+            val pendingIntent = MediaStore.createWriteRequest(contentResolver, urisToModify)
+
+            // Create a temp file with the lyrics embedded
+            val tempFilePath = prepareTempFileWithLyrics(context, song, lyrics)
+            if (tempFilePath == null) {
+                Log.e(TAG, "Failed to create temp file with lyrics")
+                return null
+            }
+
+            PendingLyricsWriteRequest(
+                intentSender = pendingIntent.intentSender,
+                song = song,
+                lyrics = lyrics,
+                tempFilePath = tempFilePath
+            )
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to create lyrics write request for song: ${song.title}", e)
+            null
+        }
+    }
+
+    /**
+     * Prepares a temp file with lyrics embedded for use after permission is granted
+     */
+    private fun prepareTempFileWithLyrics(
+        context: Context,
+        song: Song,
+        lyrics: String
+    ): String? {
+        return try {
+            val contentResolver = context.contentResolver
+            val filePath = contentResolver.query(
+                song.uri,
+                arrayOf(MediaStore.Audio.Media.DATA),
+                null, null, null
+            )?.use { cursor ->
+                if (cursor.moveToFirst()) cursor.getString(0) else null
+            }
+
+            val extension = filePath?.substringAfterLast('.', "mp3") ?: "mp3"
+            val tempFile = File(context.cacheDir, "temp_lyrics_perm_${System.currentTimeMillis()}.$extension")
+
+            // Copy original file
+            contentResolver.openInputStream(song.uri)?.use { input ->
+                tempFile.outputStream().use { output -> input.copyTo(output) }
+            }
+
+            if (!tempFile.exists() || tempFile.length() == 0L) {
+                Log.e(TAG, "Failed to copy file to temp for lyrics permission flow")
+                return null
+            }
+
+            // Write lyrics to temp
+            val audioFileObj = org.jaudiotagger.audio.AudioFileIO.read(tempFile)
+            val tag = audioFileObj.tag ?: audioFileObj.createDefaultTag()
+            tag.setField(org.jaudiotagger.tag.FieldKey.LYRICS, lyrics)
+            audioFileObj.tag = tag
+            org.jaudiotagger.audio.AudioFileIO.write(audioFileObj)
+
+            tempFile.absolutePath
+        } catch (e: Exception) {
+            Log.e(TAG, "Error preparing temp file with lyrics", e)
+            null
+        }
+    }
+
+    /**
+     * Completes lyrics embedding after user grants permission via createWriteRequest
+     */
+    fun completeLyricsWriteAfterPermission(
+        context: Context,
+        pendingRequest: PendingLyricsWriteRequest
+    ): Boolean {
+        return try {
+            val tempFile = File(pendingRequest.tempFilePath)
+            if (!tempFile.exists()) {
+                Log.e(TAG, "Temp lyrics file no longer exists: ${pendingRequest.tempFilePath}")
+                return false
+            }
+
+            val contentResolver = context.contentResolver
+            val outputStream = contentResolver.openOutputStream(pendingRequest.song.uri, "w")
+            if (outputStream == null) {
+                Log.e(TAG, "Cannot open output stream after permission granted for lyrics")
+                return false
+            }
+
+            outputStream.use { outStream ->
+                tempFile.inputStream().use { input -> input.copyTo(outStream) }
+            }
+
+            // Trigger media scanner
+            val filePath = contentResolver.query(
+                pendingRequest.song.uri,
+                arrayOf(MediaStore.Audio.Media.DATA),
+                null, null, null
+            )?.use { cursor ->
+                if (cursor.moveToFirst()) cursor.getString(0) else null
+            }
+            if (filePath != null) {
+                android.media.MediaScannerConnection.scanFile(context, arrayOf(filePath), null, null)
+            }
+
+            // Cleanup temp
+            tempFile.delete()
+
+            Log.d(TAG, "Successfully completed lyrics embedding after permission")
+            true
+        } catch (e: Exception) {
+            Log.e(TAG, "Error completing lyrics write after permission", e)
+            false
+        }
+    }
+
+    /**
+     * Cleans up a pending lyrics write request
+     */
+    fun cleanupPendingLyricsWriteRequest(pendingRequest: PendingLyricsWriteRequest) {
+        try {
+            val tempFile = File(pendingRequest.tempFilePath)
+            if (tempFile.exists()) {
+                tempFile.delete()
+                Log.d(TAG, "Cleaned up pending lyrics write temp file")
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error cleaning up pending lyrics write request", e)
         }
     }
 
@@ -1888,32 +2026,34 @@ object MediaUtils {
             val embeddedArt = retriever.embeddedPicture
             if (embeddedArt != null && embeddedArt.isNotEmpty()) {
                 if (lossless) {
-                    // Save raw bytes as PNG (lossless) without re-compression
-                    val artworkFile = File(cacheDir, "embedded_art_${songUri.hashCode()}.png")
-                    FileOutputStream(artworkFile).use { out ->
-                        val bitmap = BitmapFactory.decodeByteArray(embeddedArt, 0, embeddedArt.size)
-                        if (bitmap != null) {
-                            bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
+                    // Detect image format from magic bytes and write raw bytes directly
+                    // This preserves the original embedded image byte-for-byte
+                    val isJpeg = embeddedArt.size >= 2 && embeddedArt[0] == 0xFF.toByte() && embeddedArt[1] == 0xD8.toByte()
+                    val ext = if (isJpeg) "jpg" else "png"
+                    val artworkFile = File(cacheDir, "embedded_art_lossless_${songUri.hashCode()}.$ext")
+                    if (!artworkFile.exists()) {
+                        FileOutputStream(artworkFile).use { out ->
+                            out.write(embeddedArt)
                             out.flush()
-                            Log.d(TAG, "Extracted lossless embedded album art: ${artworkFile.absolutePath}")
-                            return artworkFile.toUri()
                         }
                     }
+                    return artworkFile.toUri()
                 } else {
                     // Save to cache with JPEG compression (default behavior)
                     val artworkFile = File(cacheDir, "embedded_art_${songUri.hashCode()}.jpg")
-                    FileOutputStream(artworkFile).use { out ->
-                        val bitmap = BitmapFactory.decodeByteArray(embeddedArt, 0, embeddedArt.size)
-                        if (bitmap != null) {
-                            bitmap.compress(Bitmap.CompressFormat.JPEG, 90, out)
-                            out.flush()
-                            Log.d(TAG, "Extracted embedded album art: ${artworkFile.absolutePath}")
-                            return artworkFile.toUri()
+                    if (!artworkFile.exists()) {
+                        FileOutputStream(artworkFile).use { out ->
+                            val bitmap = BitmapFactory.decodeByteArray(embeddedArt, 0, embeddedArt.size)
+                            if (bitmap != null) {
+                                bitmap.compress(Bitmap.CompressFormat.JPEG, 90, out)
+                                out.flush()
+                            } else {
+                                return null
+                            }
                         }
                     }
+                    return artworkFile.toUri()
                 }
-            } else {
-                Log.d(TAG, "No embedded album art found in file")
             }
         } catch (e: Exception) {
             Log.e(TAG, "Failed to extract embedded album art", e)

@@ -51,6 +51,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -64,6 +65,7 @@ import java.util.Calendar
 import java.io.File
 import chromahub.rhythm.app.shared.data.model.LyricsData // Import LyricsData
 import chromahub.rhythm.app.util.PendingWriteRequest // Import for metadata write requests
+import chromahub.rhythm.app.util.PendingLyricsWriteRequest
 import chromahub.rhythm.app.shared.data.repository.PlaybackStatsRepository // Import for enhanced stats tracking
 
 class MusicViewModel(application: Application) : AndroidViewModel(application) {
@@ -561,6 +563,10 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     private val _targetPlaylistId = MutableStateFlow<String?>(null)
     val targetPlaylistId: StateFlow<String?> = _targetPlaylistId.asStateFlow()
     
+    // Pending lyrics write request for Android 11+ permission flow
+    private val _pendingLyricsWriteRequest = MutableStateFlow<PendingLyricsWriteRequest?>(null)
+    val pendingLyricsWriteRequest: StateFlow<PendingLyricsWriteRequest?> = _pendingLyricsWriteRequest.asStateFlow()
+
     // Pending write request for metadata editing (Android 11+ permission flow)
     private val _pendingWriteRequest = MutableStateFlow<PendingWriteRequest?>(null)
     val pendingWriteRequest: StateFlow<PendingWriteRequest?> = _pendingWriteRequest.asStateFlow()
@@ -1346,18 +1352,20 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     private fun startListeningTimeTracking() {
         viewModelScope.launch {
             try {
-                while (isActive) {
-                    if (isPlaying.value && _currentSong.value != null) {
-                        // Update listening time every minute when actually playing music
-                        delay(60000) // 1 minute
-                        val newTime = _listeningTime.value + 60000
-                        _listeningTime.value = newTime
-                        appSettings.setListeningTime(newTime)
-                    } else {
-                        // Check less frequently when not playing to reduce resource usage
-                        // This helps prevent ANR when app is used without playing music
-                        delay(5000) // Check every 5 seconds when not playing
+                // Only track listening time while actually playing
+                isPlaying.collectLatest { playing ->
+                    if (playing && _currentSong.value != null) {
+                        while (isActive) {
+                            delay(60000) // 1 minute
+                            // Double-check still playing after delay
+                            if (isPlaying.value && _currentSong.value != null) {
+                                val newTime = _listeningTime.value + 60000
+                                _listeningTime.value = newTime
+                                appSettings.setListeningTime(newTime)
+                            }
+                        }
                     }
+                    // When not playing, collectLatest suspends until next change — no polling needed
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Error in listening time tracking", e)
@@ -3639,25 +3647,10 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     /**
-     * Start monitoring for audio device changes
-     */
-    private fun startDeviceMonitoring() {
-        viewModelScope.launch {
-            while (isActive) {
-                // Refresh devices every 1 second to ensure UI is up-to-date
-                // This is especially important when switching between speaker and Bluetooth
-                audioDeviceManager.refreshDevices()
-                delay(1000) // Reduced from 5000ms to 1000ms for more responsive UI
-            }
-        }
-    }
-
-    // Add controlled device monitoring that can be started/stopped
-    private var deviceMonitoringJob: Job? = null
-
-    /**
      * Start device monitoring when needed (e.g., when player screen is open)
      */
+    private var deviceMonitoringJob: Job? = null
+    
     fun startDeviceMonitoringOnDemand() {
         if (deviceMonitoringJob?.isActive == true) {
             Log.d(TAG, "Device monitoring already running")
@@ -3667,9 +3660,10 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         Log.d(TAG, "Starting on-demand device monitoring")
         deviceMonitoringJob = viewModelScope.launch {
             while (isActive) {
-                // Refresh devices every 2 seconds when actively monitoring
+                // Refresh devices every 5 seconds when actively monitoring
+                // AudioNoisyReceiver handles urgent changes (e.g., headphones unplugged)
                 audioDeviceManager.refreshDevices()
-                delay(2000)
+                delay(5000)
             }
         }
     }
@@ -4522,31 +4516,78 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     /**
      * Embed lyrics into the current song's audio file metadata
      */
-    fun embedLyricsInFile(lyrics: String) {
+    fun embedLyricsInFile(
+        lyrics: String,
+        onSuccess: (() -> Unit)? = null,
+        onError: ((String) -> Unit)? = null,
+        onPermissionRequired: ((PendingLyricsWriteRequest) -> Unit)? = null
+    ) {
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 val song = _currentSong.value
-                if (song != null) {
-                    val context = getApplication<Application>()
-                    val success = MediaUtils.embedLyricsInFile(context, song, lyrics)
-                    withContext(Dispatchers.Main) {
-                        if (success) {
-                            android.widget.Toast.makeText(
-                                context,
-                                context.getString(R.string.lyrics_embed_success),
-                                android.widget.Toast.LENGTH_SHORT
-                            ).show()
+                if (song == null) {
+                    Log.w(TAG, "Cannot embed lyrics - no current song")
+                    return@launch
+                }
+                val context = getApplication<Application>()
+                val success = MediaUtils.embedLyricsInFile(context, song, lyrics)
+                withContext(Dispatchers.Main) {
+                    if (success) {
+                        android.widget.Toast.makeText(
+                            context,
+                            context.getString(R.string.lyrics_embed_success),
+                            android.widget.Toast.LENGTH_SHORT
+                        ).show()
+                        onSuccess?.invoke()
+                    } else {
+                        // File update failed - on Android 11+, try createWriteRequest
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                            Log.d(TAG, "Lyrics embed failed, attempting createWriteRequest approach")
+                            val pendingRequest = withContext(Dispatchers.IO) {
+                                MediaUtils.createWriteRequestForLyrics(context, song, lyrics)
+                            }
+                            if (pendingRequest != null) {
+                                _pendingLyricsWriteRequest.value = pendingRequest
+                                onPermissionRequired?.invoke(pendingRequest)
+                                    ?: onError?.invoke("Permission required to embed lyrics.")
+                            } else {
+                                android.widget.Toast.makeText(
+                                    context,
+                                    context.getString(R.string.lyrics_embed_failed),
+                                    android.widget.Toast.LENGTH_SHORT
+                                ).show()
+                                onError?.invoke("Failed to embed lyrics")
+                            }
                         } else {
                             android.widget.Toast.makeText(
                                 context,
                                 context.getString(R.string.lyrics_embed_failed),
                                 android.widget.Toast.LENGTH_SHORT
                             ).show()
+                            onError?.invoke("Failed to embed lyrics")
                         }
                     }
-                    Log.d(TAG, "Embed lyrics result: $success for ${song.title}")
+                }
+                Log.d(TAG, "Embed lyrics result: $success for ${song.title}")
+            } catch (e: chromahub.rhythm.app.util.RecoverableSecurityExceptionWrapper) {
+                Log.w(TAG, "RecoverableSecurityException for lyrics - attempting createWriteRequest")
+                val context = getApplication<Application>()
+                val song = _currentSong.value ?: return@launch
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                    val pendingRequest = MediaUtils.createWriteRequestForLyrics(context, song, lyrics)
+                    withContext(Dispatchers.Main) {
+                        if (pendingRequest != null) {
+                            _pendingLyricsWriteRequest.value = pendingRequest
+                            onPermissionRequired?.invoke(pendingRequest)
+                                ?: onError?.invoke("Permission required to embed lyrics.")
+                        } else {
+                            onError?.invoke("Cannot embed lyrics: permission denied.")
+                        }
+                    }
                 } else {
-                    Log.w(TAG, "Cannot embed lyrics - no current song")
+                    withContext(Dispatchers.Main) {
+                        onError?.invoke("Cannot embed lyrics: permission denied.")
+                    }
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Error embedding lyrics in file", e)
@@ -4556,8 +4597,63 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                         getApplication<Application>().getString(R.string.lyrics_embed_failed),
                         android.widget.Toast.LENGTH_SHORT
                     ).show()
+                    onError?.invoke("Error: ${e.message}")
                 }
             }
+        }
+    }
+
+    /**
+     * Complete lyrics embedding after user grants permission via createWriteRequest
+     */
+    fun completeLyricsWriteAfterPermission(
+        onSuccess: () -> Unit,
+        onError: (String) -> Unit
+    ) {
+        val pendingRequest = _pendingLyricsWriteRequest.value
+        if (pendingRequest == null) {
+            onError("No pending lyrics write request")
+            return
+        }
+        viewModelScope.launch {
+            try {
+                val context = getApplication<Application>().applicationContext
+                val success = withContext(Dispatchers.IO) {
+                    MediaUtils.completeLyricsWriteAfterPermission(context, pendingRequest)
+                }
+                _pendingLyricsWriteRequest.value = null
+                withContext(Dispatchers.Main) {
+                    if (success) {
+                        android.widget.Toast.makeText(
+                            context,
+                            context.getString(R.string.lyrics_embed_success),
+                            android.widget.Toast.LENGTH_SHORT
+                        ).show()
+                        onSuccess()
+                    } else {
+                        onError("Failed to embed lyrics even after permission was granted")
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error completing lyrics write after permission", e)
+                _pendingLyricsWriteRequest.value = null
+                withContext(Dispatchers.Main) {
+                    onError("Error: ${e.message}")
+                }
+            }
+        }
+    }
+
+    /**
+     * Cancel pending lyrics write request
+     */
+    fun cancelPendingLyricsWrite() {
+        val pendingRequest = _pendingLyricsWriteRequest.value
+        if (pendingRequest != null) {
+            viewModelScope.launch(Dispatchers.IO) {
+                MediaUtils.cleanupPendingLyricsWriteRequest(pendingRequest)
+            }
+            _pendingLyricsWriteRequest.value = null
         }
     }
 

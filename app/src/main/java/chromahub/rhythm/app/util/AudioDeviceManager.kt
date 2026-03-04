@@ -71,9 +71,20 @@ class AudioDeviceManager(private val context: Context) {
         try {
             val filter = android.content.IntentFilter(android.media.AudioManager.ACTION_AUDIO_BECOMING_NOISY)
             context.registerReceiver(audioNoisyReceiver, filter)
-            Log.d(TAG, "Registered audio becoming noisy receiver")
         } catch (e: Exception) {
             Log.e(TAG, "Error registering audio becoming noisy receiver: ${e.message}", e)
+        }
+        
+        // Register AudioDeviceCallback for reactive device change detection (API 23+)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            audioManager.registerAudioDeviceCallback(object : android.media.AudioDeviceCallback() {
+                override fun onAudioDevicesAdded(addedDevices: Array<out AudioDeviceInfo>?) {
+                    refreshDevices()
+                }
+                override fun onAudioDevicesRemoved(removedDevices: Array<out AudioDeviceInfo>?) {
+                    refreshDevices()
+                }
+            }, android.os.Handler(android.os.Looper.getMainLooper()))
         }
     }
     
@@ -140,7 +151,6 @@ class AudioDeviceManager(private val context: Context) {
      */
     fun refreshDevices() {
         try {
-            Log.d(TAG, "Refreshing audio devices")
             val devices = mutableListOf<PlaybackLocation>()
             
             // Always add speaker
@@ -162,7 +172,6 @@ class AudioDeviceManager(private val context: Context) {
                             icon = 0 // Use appropriate icon
                         )
                     )
-                    Log.d(TAG, "Wired headset detected")
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Error checking wired headset status: ${e.message}", e)
@@ -172,7 +181,6 @@ class AudioDeviceManager(private val context: Context) {
             try {
                 val bluetoothDevices = getConnectedBluetoothDevices()
                 if (bluetoothDevices.isNotEmpty()) {
-                    Log.d(TAG, "Found ${bluetoothDevices.size} Bluetooth devices")
                     bluetoothDevices.forEach { (name, address) ->
                         devices.add(
                             PlaybackLocation(
@@ -182,8 +190,6 @@ class AudioDeviceManager(private val context: Context) {
                             )
                         )
                     }
-                } else {
-                    Log.d(TAG, "No Bluetooth audio devices found")
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Error getting Bluetooth devices: ${e.message}", e)
@@ -196,14 +202,11 @@ class AudioDeviceManager(private val context: Context) {
                 !currentDevices.map { it.id }.containsAll(devices.map { it.id })
                 
             if (devicesChanged) {
-                Log.d(TAG, "Audio device list changed, updating")
                 _availableDevices.value = devices
                 
                 // Handle current device selection
                 updateCurrentDeviceAfterRefresh(devices)
             } else {
-                Log.d(TAG, "Audio device list unchanged")
-                
                 // Even if the device list hasn't changed, we should check if the active device has changed
                 if (!isManuallySelected) {
                     detectActiveDevice(devices)
@@ -257,8 +260,6 @@ class AudioDeviceManager(private val context: Context) {
                     Log.d(TAG, "No device was selected, selecting: ${newDevice.name}")
                 }
             }
-            
-            Log.d(TAG, "Current audio device: ${_currentDevice.value?.name ?: "None"}")
         } catch (e: Exception) {
             Log.e(TAG, "Error updating current device: ${e.message}", e)
             // Fallback to speaker if available

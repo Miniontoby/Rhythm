@@ -76,6 +76,7 @@ import androidx.compose.material.icons.rounded.Save
 import androidx.compose.material.icons.rounded.FolderOpen
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Lyrics
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.AlertDialog
@@ -366,24 +367,33 @@ fun PlayerScreen(
     // System volume state
     var systemVolume by remember { mutableFloatStateOf(0.5f) }
 
-    // Monitor system volume changes
+    // Monitor system volume changes using ContentObserver instead of polling
     LaunchedEffect(useSystemVolume) {
         if (useSystemVolume) {
-            while (true) {
-                val audioManager =
-                    context.getSystemService(android.content.Context.AUDIO_SERVICE) as android.media.AudioManager
-                val currentVolume =
-                    audioManager.getStreamVolume(android.media.AudioManager.STREAM_MUSIC)
-                val maxVolume =
-                    audioManager.getStreamMaxVolume(android.media.AudioManager.STREAM_MUSIC)
-                val newSystemVolume =
-                    if (maxVolume > 0) currentVolume.toFloat() / maxVolume.toFloat() else 0f
+            val audioManager =
+                context.getSystemService(android.content.Context.AUDIO_SERVICE) as android.media.AudioManager
+            // Get initial volume
+            val maxVolume = audioManager.getStreamMaxVolume(android.media.AudioManager.STREAM_MUSIC)
+            val currentVolume = audioManager.getStreamVolume(android.media.AudioManager.STREAM_MUSIC)
+            systemVolume = if (maxVolume > 0) currentVolume.toFloat() / maxVolume.toFloat() else 0f
 
-                if (newSystemVolume != systemVolume) {
-                    systemVolume = newSystemVolume
+            // Use ContentObserver to react to volume changes without polling
+            val volumeObserver = object : android.database.ContentObserver(android.os.Handler(android.os.Looper.getMainLooper())) {
+                override fun onChange(selfChange: Boolean) {
+                    val cv = audioManager.getStreamVolume(android.media.AudioManager.STREAM_MUSIC)
+                    val mv = audioManager.getStreamMaxVolume(android.media.AudioManager.STREAM_MUSIC)
+                    systemVolume = if (mv > 0) cv.toFloat() / mv.toFloat() else 0f
                 }
+            }
+            context.contentResolver.registerContentObserver(
+                android.provider.Settings.System.CONTENT_URI,
+                true,
+                volumeObserver
+            )
 
-                kotlinx.coroutines.delay(500) // Check every 500ms
+            // Unregister when effect leaves composition
+            try { kotlinx.coroutines.awaitCancellation() } finally {
+                context.contentResolver.unregisterContentObserver(volumeObserver)
             }
         }
     }
@@ -405,6 +415,7 @@ fun PlayerScreen(
     var showSleepTimerBottomSheet by remember { mutableStateOf(false) }
     var showLyricsEditorDialog by remember { mutableStateOf(false) }
     var showPlaybackSpeedDialog by remember { mutableStateOf(false) }
+    var showPlaybackPitchDialog by remember { mutableStateOf(false) }
     var showChipOrderBottomSheet by remember { mutableStateOf(false) }
     var showCastBottomSheet by remember { mutableStateOf(false) }
     
@@ -412,8 +423,9 @@ fun PlayerScreen(
     val sleepTimerActive by musicViewModel.sleepTimerActive.collectAsState()
     val sleepTimerRemainingSeconds by musicViewModel.sleepTimerRemainingSeconds.collectAsState()
     
-    // Playback speed state from ViewModel
+    // Playback speed/pitch state from ViewModel
     val playbackSpeed by musicViewModel.playbackSpeed.collectAsState()
+    val playbackPitch by musicViewModel.playbackPitch.collectAsState()
     
     // Equalizer state from ViewModel
     val equalizerEnabled by musicViewModel.equalizerEnabled.collectAsState()
@@ -451,6 +463,25 @@ fun PlayerScreen(
             // User denied permission
             musicViewModel.cancelPendingMetadataWrite()
             Toast.makeText(context, "Permission denied. Changes saved to library only.", Toast.LENGTH_LONG).show()
+        }
+    }
+    
+    // Write permission launcher for Android 11+ lyrics embedding
+    val lyricsWritePermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartIntentSenderForResult()
+    ) { result ->
+        if (result.resultCode == android.app.Activity.RESULT_OK) {
+            musicViewModel.completeLyricsWriteAfterPermission(
+                onSuccess = {
+                    // Toast already shown by ViewModel
+                },
+                onError = { errorMessage ->
+                    Toast.makeText(context, errorMessage, Toast.LENGTH_LONG).show()
+                }
+            )
+        } else {
+            musicViewModel.cancelPendingLyricsWrite()
+            Toast.makeText(context, "Permission denied. Could not embed lyrics.", Toast.LENGTH_LONG).show()
         }
     }
     
@@ -795,6 +826,10 @@ fun PlayerScreen(
                 onStopDeviceMonitoring()
             },
             appSettings = appSettings ?: chromahub.rhythm.app.shared.data.model.AppSettings.getInstance(context),
+            onNavigateToSettings = {
+                showDeviceOutputSheet = false
+                navController.navigate(Screen.TunerQueuePlayback.route)
+            },
             sheetState = deviceOutputSheetState
         )
     }
@@ -954,11 +989,17 @@ fun PlayerScreen(
             sleepTimerActive = sleepTimerActive,
             sleepTimerRemainingSeconds = sleepTimerRemainingSeconds,
             lyrics = lyrics,
+            isFavorite = isFavorite,
             onAddToPlaylist = onAddToPlaylist,
+            onToggleFavorite = onToggleFavorite,
             onPlaybackSpeed = { showPlaybackSpeedDialog = true },
+            onPlaybackPitch = { showPlaybackPitchDialog = true },
             onEqualizer = { navController.navigate(Screen.Equalizer.route) },
             onSleepTimer = { showSleepTimerBottomSheet = true },
             onLyricsEditor = { showLyricsEditorDialog = true },
+            onAlbum = onShowAlbumBottomSheet,
+            onArtist = onShowArtistBottomSheet,
+            onCast = { showCastBottomSheet = true },
             onSongInfo = { showSongInfoSheet = true },
             haptic = haptic,
             isExtraSmallWidth = isExtraSmallWidth,
@@ -1395,23 +1436,30 @@ fun PlayerScreen(
                                 Box(modifier = Modifier.fillMaxSize()) {
                                     // Album art content with enhanced loading state
                                     if (song.artworkUri != null) {
+                                        var imageLoaded by remember { mutableStateOf(false) }
+                                        // Reset loading state when song changes
+                                        LaunchedEffect(song.id) { imageLoaded = false }
+                                        
                                         Box(modifier = Modifier.fillMaxSize()) {
-                                            // Show shimmer while loading
-                                            ShimmerBox(
-                                                modifier = Modifier
-                                                    .fillMaxSize()
-                                                    .clip(playerArtworkShape)
-                                            )
+                                            // Show shimmer only while loading
+                                            if (!imageLoaded) {
+                                                ShimmerBox(
+                                                    modifier = Modifier
+                                                        .fillMaxSize()
+                                                        .clip(playerArtworkShape)
+                                                )
+                                            }
                                             
                                             AsyncImage(
                                                 model = ImageRequest.Builder(context)
                                                     .data(song.artworkUri)
                                                     .placeholder(chromahub.rhythm.app.R.drawable.rhythm_logo)
                                                     .error(chromahub.rhythm.app.R.drawable.rhythm_logo)
-                                                    .allowHardware(false)
                                                     .build(),
                                                 contentDescription = "Album artwork for ${song.title}",
                                                 contentScale = ContentScale.Crop,
+                                                onSuccess = { imageLoaded = true },
+                                                onError = { imageLoaded = true },
                                                 modifier = Modifier
                                                     .fillMaxSize()
                                                     .clip(playerArtworkShape)
@@ -2664,6 +2712,78 @@ fun PlayerScreen(
                                                     border = null
                                                 )
                                             }
+                                            "PITCH" -> {
+                                                val containerColor by animateColorAsState(
+                                                    targetValue = if (playbackPitch != 1.0f)
+                                                        MaterialTheme.colorScheme.tertiaryContainer
+                                                    else
+                                                        MaterialTheme.colorScheme.surfaceVariant,
+                                                    animationSpec = spring(
+                                                        dampingRatio = Spring.DampingRatioMediumBouncy,
+                                                        stiffness = Spring.StiffnessLow
+                                                    ),
+                                                    label = "pitchChipContainerColor"
+                                                )
+                                                val labelColor by animateColorAsState(
+                                                    targetValue = if (playbackPitch != 1.0f)
+                                                        MaterialTheme.colorScheme.onTertiaryContainer
+                                                    else
+                                                        MaterialTheme.colorScheme.onSurfaceVariant,
+                                                    animationSpec = spring(
+                                                        dampingRatio = Spring.DampingRatioMediumBouncy,
+                                                        stiffness = Spring.StiffnessLow
+                                                    ),
+                                                    label = "pitchChipLabelColor"
+                                                )
+                                                val iconColor by animateColorAsState(
+                                                    targetValue = if (playbackPitch != 1.0f)
+                                                        MaterialTheme.colorScheme.onTertiaryContainer
+                                                    else
+                                                        MaterialTheme.colorScheme.onSurfaceVariant,
+                                                    animationSpec = spring(
+                                                        dampingRatio = Spring.DampingRatioMediumBouncy,
+                                                        stiffness = Spring.StiffnessLow
+                                                    ),
+                                                    label = "pitchChipIconColor"
+                                                )
+
+                                                AssistChip(
+                                                    onClick = {
+                                                        HapticUtils.performHapticFeedback(
+                                                            context,
+                                                            haptic,
+                                                            HapticFeedbackType.LongPress
+                                                        )
+                                                        showPlaybackPitchDialog = true
+                                                    },
+                                                    label = {
+                                                        Text(
+                                                            if (playbackPitch != 1.0f)
+                                                                "${String.format("%.2f", playbackPitch)}x"
+                                                            else
+                                                                "Pitch",
+                                                            style = MaterialTheme.typography.labelLarge.copy(
+                                                                fontSize = if (isExtraSmallWidth) 11.sp else 12.sp
+                                                            )
+                                                        )
+                                                    },
+                                                    leadingIcon = {
+                                                        Icon(
+                                                            imageVector = Icons.Filled.GraphicEq,
+                                                            contentDescription = "Playback pitch",
+                                                            modifier = Modifier.size(if (isExtraSmallWidth) 14.dp else 16.dp)
+                                                        )
+                                                    },
+                                                    modifier = Modifier.height(if (isExtraSmallWidth) 28.dp else 32.dp),
+                                                    shape = RoundedCornerShape(if (isExtraSmallWidth) 12.dp else 16.dp),
+                                                    colors = AssistChipDefaults.assistChipColors(
+                                                        containerColor = containerColor,
+                                                        labelColor = labelColor,
+                                                        leadingIconContentColor = iconColor
+                                                    ),
+                                                    border = null
+                                                )
+                                            }
                                             "EQUALIZER" -> {
                                                 var isPressed by remember { mutableStateOf(false) }
                                                 val scale by animateFloatAsState(
@@ -3283,14 +3403,22 @@ fun PlayerScreen(
                                 shape = RoundedCornerShape(28.dp),
                                 color = MaterialTheme.colorScheme.secondaryContainer,
                                 tonalElevation = 0.dp,
-                                modifier = Modifier.weight(1f)
+                                modifier = if (isCompactWidth) {
+                                    Modifier
+                                        .height(if (isCompactHeight) 36.dp else 40.dp)
+                                        .weight(1f)
+                                } else {
+                                    Modifier.weight(1f)
+                                }
                             ) {
                                 Row(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .padding(
-                                            vertical = if (isCompactHeight) 8.dp else 12.dp,
-                                            horizontal = if (isCompactWidth) 8.dp else 12.dp
+                                        .then(
+                                            if (isCompactWidth) Modifier else Modifier.padding(
+                                                vertical = if (isCompactHeight) 8.dp else 12.dp,
+                                                horizontal = 12.dp
+                                            )
                                         ),
                                     verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = if (isCompactWidth) Arrangement.Center else Arrangement.Start
@@ -3415,14 +3543,22 @@ fun PlayerScreen(
                                 shape = RoundedCornerShape(28.dp),
                                 color = MaterialTheme.colorScheme.secondaryContainer,
                                 tonalElevation = 0.dp,
-                                modifier = Modifier.weight(1f)
+                                modifier = if (isCompactWidth) {
+                                    Modifier
+                                        .height(if (isCompactHeight) 36.dp else 40.dp)
+                                        .weight(1f)
+                                } else {
+                                    Modifier.weight(1f)
+                                }
                             ) {
                                 Row(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .padding(
-                                            vertical = if (isCompactHeight) 8.dp else 12.dp,
-                                            horizontal = if (isCompactWidth) 8.dp else 12.dp
+                                        .then(
+                                            if (isCompactWidth) Modifier else Modifier.padding(
+                                                vertical = if (isCompactHeight) 8.dp else 12.dp,
+                                                horizontal = 12.dp
+                                            )
                                         ),
                                     verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = if (isCompactWidth) Arrangement.Center else Arrangement.Start
@@ -3539,12 +3675,21 @@ fun PlayerScreen(
     if (showPlaybackSpeedDialog) {
         PlaybackSpeedDialog(
             currentSpeed = playbackSpeed,
-            currentPitch = musicViewModel.playbackPitch.collectAsState().value,
             onDismiss = { showPlaybackSpeedDialog = false },
-            onSave = { speed, pitch ->
+            onSave = { speed ->
                 musicViewModel.setPlaybackSpeed(speed)
-                musicViewModel.setPlaybackPitch(pitch)
                 showPlaybackSpeedDialog = false
+            }
+        )
+    }
+    
+    if (showPlaybackPitchDialog) {
+        PlaybackPitchDialog(
+            currentPitch = musicViewModel.playbackPitch.collectAsState().value,
+            onDismiss = { showPlaybackPitchDialog = false },
+            onSave = { pitch ->
+                musicViewModel.setPlaybackPitch(pitch)
+                showPlaybackPitchDialog = false
             }
         )
     }
@@ -3590,8 +3735,25 @@ fun PlayerScreen(
                 musicViewModel.clearLyricsCacheAndRefetch()
             },
             onEmbedInFile = { editedLyrics ->
-                // Embed lyrics into the audio file's metadata
-                musicViewModel.embedLyricsInFile(editedLyrics)
+                // Embed lyrics into the audio file's metadata with permission handling
+                musicViewModel.embedLyricsInFile(
+                    lyrics = editedLyrics,
+                    onPermissionRequired = { pendingRequest ->
+                        try {
+                            val intentSenderRequest = androidx.activity.result.IntentSenderRequest.Builder(
+                                pendingRequest.intentSender
+                            ).build()
+                            lyricsWritePermissionLauncher.launch(intentSenderRequest)
+                        } catch (e: Exception) {
+                            Toast.makeText(
+                                context,
+                                "Failed to request permission: ${e.message}",
+                                Toast.LENGTH_LONG
+                            ).show()
+                            musicViewModel.cancelPendingLyricsWrite()
+                        }
+                    }
+                )
             }
         )
     }
@@ -3647,28 +3809,18 @@ fun PlayerScreen(
 @Composable
 fun PlaybackSpeedDialog(
     currentSpeed: Float,
-    currentPitch: Float = 1.0f,
     onDismiss: () -> Unit,
-    onSave: (Float, Float) -> Unit
+    onSave: (Float) -> Unit
 ) {
     val context = LocalContext.current
     val haptics = LocalHapticFeedback.current
 
-    // Speed range: 0.25x to 3.0x
     val minSpeed = 0.25f
     val maxSpeed = 3.0f
-
-    // Pitch range: 0.25x to 3.0x
-    val minPitch = 0.25f
-    val maxPitch = 3.0f
     
     var selectedSpeed by remember { mutableFloatStateOf(currentSpeed.coerceIn(minSpeed, maxSpeed)) }
-    var selectedPitch by remember { mutableFloatStateOf(currentPitch.coerceIn(minPitch, maxPitch)) }
 
-    // Helper function to format display
-    fun formatValue(value: Float): String {
-        return "${String.format("%.2f", value)}x"
-    }
+    fun formatValue(value: Float): String = "${String.format("%.2f", value)}x"
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -3683,7 +3835,7 @@ fun PlaybackSpeedDialog(
                     tint = MaterialTheme.colorScheme.primary
                 )
                 Text(
-                    text = context.getString(R.string.player_playback_speed),
+                    text = context.getString(R.string.player_speed_label),
                     style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.Bold
                 )
@@ -3692,14 +3844,14 @@ fun PlaybackSpeedDialog(
         text = {
             Column {
                 Text(
-                    text = context.getString(R.string.player_playback_speed_desc),
+                    text = "Adjust playback speed",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
 
                 Spacer(modifier = Modifier.height(24.dp))
 
-                // Current selection display
+                // Current speed display
                 Card(
                     colors = CardDefaults.cardColors(
                         containerColor = MaterialTheme.colorScheme.primaryContainer
@@ -3707,36 +3859,17 @@ fun PlaybackSpeedDialog(
                     shape = RoundedCornerShape(12.dp),
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Row(
-                        horizontalArrangement = Arrangement.SpaceEvenly,
+                    Column(
+                        horizontalAlignment = Alignment.Start,
                         modifier = Modifier.fillMaxWidth().padding(16.dp)
                     ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(
-                                text = context.getString(R.string.player_speed_label),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer
-                            )
-                            Text(
-                                text = formatValue(selectedSpeed),
-                                style = MaterialTheme.typography.headlineMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer
-                            )
-                        }
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(
-                                text = context.getString(R.string.player_pitch_label),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer
-                            )
-                            Text(
-                                text = formatValue(selectedPitch),
-                                style = MaterialTheme.typography.headlineMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer
-                            )
-                        }
+                        Text(
+                            text = formatValue(selectedSpeed),
+                            style = MaterialTheme.typography.headlineMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                            textAlign = TextAlign.Start
+                        )
                     }
                 }
 
@@ -3744,13 +3877,6 @@ fun PlaybackSpeedDialog(
 
                 // Speed Slider
                 Column {
-                    Text(
-                        text = context.getString(R.string.player_speed_label),
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
                     Row(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         modifier = Modifier.fillMaxWidth()
@@ -3773,11 +3899,7 @@ fun PlaybackSpeedDialog(
                         value = selectedSpeed,
                         onValueChange = { newValue ->
                             selectedSpeed = newValue
-                            HapticUtils.performHapticFeedback(
-                                context,
-                                haptics,
-                                HapticFeedbackType.TextHandleMove
-                            )
+                            HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
                         },
                         valueRange = minSpeed..maxSpeed,
                         steps = 10,
@@ -3797,11 +3919,7 @@ fun PlaybackSpeedDialog(
                             AssistChip(
                                 onClick = {
                                     selectedSpeed = presetSpeed
-                                    HapticUtils.performHapticFeedback(
-                                        context,
-                                        haptics,
-                                        HapticFeedbackType.LongPress
-                                    )
+                                    HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
                                 },
                                 label = {
                                     Text(
@@ -3826,18 +3944,118 @@ fun PlaybackSpeedDialog(
                         }
                     }
                 }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
+                    onSave(selectedSpeed)
+                },
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary
+                )
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Check,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text("Apply")
+            }
+        },
+        dismissButton = {
+            OutlinedButton(
+                onClick = {
+                    HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
+                    onDismiss()
+                }
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.Close,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text("Cancel")
+            }
+        }
+    )
+}
 
-                Spacer(modifier = Modifier.height(16.dp))
+@Composable
+fun PlaybackPitchDialog(
+    currentPitch: Float,
+    onDismiss: () -> Unit,
+    onSave: (Float) -> Unit
+) {
+    val context = LocalContext.current
+    val haptics = LocalHapticFeedback.current
+
+    val minPitch = 0.25f
+    val maxPitch = 3.0f
+    
+    var selectedPitch by remember { mutableFloatStateOf(currentPitch.coerceIn(minPitch, maxPitch)) }
+
+    fun formatValue(value: Float): String = "${String.format("%.2f", value)}x"
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.GraphicEq,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary
+                )
+                Text(
+                    text = context.getString(R.string.player_pitch_label),
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        },
+        text = {
+            Column {
+                Text(
+                    text = "Adjust audio pitch",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                // Current pitch display
+                Card(
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer
+                    ),
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.Start,
+                        modifier = Modifier.fillMaxWidth().padding(16.dp)
+                    ) {
+                        Text(
+                            text = formatValue(selectedPitch),
+                            style = MaterialTheme.typography.headlineMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                            textAlign = TextAlign.Start
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(20.dp))
 
                 // Pitch Slider
                 Column {
-                    Text(
-                        text = context.getString(R.string.player_pitch_label),
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
                     Row(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         modifier = Modifier.fillMaxWidth()
@@ -3860,17 +4078,13 @@ fun PlaybackSpeedDialog(
                         value = selectedPitch,
                         onValueChange = { newValue ->
                             selectedPitch = newValue
-                            HapticUtils.performHapticFeedback(
-                                context,
-                                haptics,
-                                HapticFeedbackType.TextHandleMove
-                            )
+                            HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
                         },
                         valueRange = minPitch..maxPitch,
                         steps = 10,
                         colors = SliderDefaults.colors(
-                            thumbColor = MaterialTheme.colorScheme.tertiary,
-                            activeTrackColor = MaterialTheme.colorScheme.tertiary,
+                            thumbColor = MaterialTheme.colorScheme.primary,
+                            activeTrackColor = MaterialTheme.colorScheme.primary,
                             inactiveTrackColor = MaterialTheme.colorScheme.surfaceVariant
                         )
                     )
@@ -3880,15 +4094,11 @@ fun PlaybackSpeedDialog(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        items(listOf(0.5f, 0.75f, 1.0f, 1.25f, 1.5f, 2.0f), key = { "pitch_$it" }) { presetPitch ->
+                        items(listOf(0.5f, 0.75f, 1.0f, 1.25f, 1.5f, 2.0f, 2.5f, 3.0f), key = { "pitch_$it" }) { presetPitch ->
                             AssistChip(
                                 onClick = {
                                     selectedPitch = presetPitch
-                                    HapticUtils.performHapticFeedback(
-                                        context,
-                                        haptics,
-                                        HapticFeedbackType.LongPress
-                                    )
+                                    HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
                                 },
                                 label = {
                                     Text(
@@ -3900,11 +4110,11 @@ fun PlaybackSpeedDialog(
                                 shape = RoundedCornerShape(16.dp),
                                 colors = AssistChipDefaults.assistChipColors(
                                     containerColor = if (selectedPitch == presetPitch)
-                                        MaterialTheme.colorScheme.tertiaryContainer
+                                        MaterialTheme.colorScheme.primaryContainer
                                     else
                                         MaterialTheme.colorScheme.surfaceVariant,
                                     labelColor = if (selectedPitch == presetPitch)
-                                        MaterialTheme.colorScheme.onTertiaryContainer
+                                        MaterialTheme.colorScheme.onPrimaryContainer
                                     else
                                         MaterialTheme.colorScheme.onSurfaceVariant
                                 ),
@@ -3919,13 +4129,19 @@ fun PlaybackSpeedDialog(
             Button(
                 onClick = {
                     HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
-                    onSave(selectedSpeed, selectedPitch)
+                    onSave(selectedPitch)
                 },
                 colors = ButtonDefaults.buttonColors(
                     containerColor = MaterialTheme.colorScheme.primary,
                     contentColor = MaterialTheme.colorScheme.onPrimary
                 )
             ) {
+                Icon(
+                    imageVector = Icons.Filled.Check,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(modifier = Modifier.width(6.dp))
                 Text("Apply")
             }
         },
@@ -3936,6 +4152,12 @@ fun PlaybackSpeedDialog(
                     onDismiss()
                 }
             ) {
+                Icon(
+                    imageVector = Icons.Rounded.Close,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(modifier = Modifier.width(6.dp))
                 Text("Cancel")
             }
         }

@@ -38,6 +38,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.filled.Speed
+import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.rounded.SyncAlt
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
@@ -61,6 +62,7 @@ import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -85,7 +87,6 @@ import chromahub.rhythm.app.R
 import chromahub.rhythm.app.shared.data.model.PlaybackLocation
 import chromahub.rhythm.app.shared.presentation.components.icons.RhythmIcons
 import chromahub.rhythm.app.shared.data.model.AppSettings
-import chromahub.rhythm.app.shared.data.model.LyricsSourcePreference
 import chromahub.rhythm.app.util.HapticUtils
 import chromahub.rhythm.app.features.local.presentation.viewmodel.MusicViewModel
 import androidx.compose.material.icons.Icons
@@ -106,6 +107,7 @@ fun PlaybackBottomSheet(
     onRefreshDevices: () -> Unit,
     onDismiss: () -> Unit,
     appSettings: AppSettings,
+    onNavigateToSettings: (() -> Unit)? = null,
     sheetState: SheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 ) {
     val context = LocalContext.current
@@ -120,14 +122,8 @@ fun PlaybackBottomSheet(
     
     // Collect settings
     val playbackSpeed by musicViewModel.playbackSpeed.collectAsState()
+    val playbackPitch by musicViewModel.playbackPitch.collectAsState()
     val gaplessPlayback by appSettings.gaplessPlayback.collectAsState()
-    val shuffleUsesExoplayer by appSettings.shuffleUsesExoplayer.collectAsState()
-    val autoAddToQueue by appSettings.autoAddToQueue.collectAsState()
-    val shuffleModePersistence by appSettings.shuffleModePersistence.collectAsState()
-    val repeatModePersistence by appSettings.repeatModePersistence.collectAsState()
-    val lyricsSourcePreference by appSettings.lyricsSourcePreference.collectAsState()
-    val clearQueueOnNewSong by appSettings.clearQueueOnNewSong.collectAsState()
-    val queuePersistenceEnabled by appSettings.queuePersistenceEnabled.collectAsState()
     val useSystemVolume by appSettings.useSystemVolume.collectAsState()
     val crossfadeEnabled by appSettings.crossfade.collectAsState()
     val crossfadeDuration by appSettings.crossfadeDuration.collectAsState()
@@ -163,20 +159,27 @@ fun PlaybackBottomSheet(
         systemMaxVolume = maxVolume
     }
     
-    // Monitor system volume changes
-    LaunchedEffect(Unit) {
-        while (true) {
-            val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
-            val currentVolume = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)
-            val maxVolume = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
-            val newSystemVolume = currentVolume.toFloat() / maxVolume.toFloat()
-            
-            if (newSystemVolume != systemVolume) {
-                systemVolume = newSystemVolume
-                systemMaxVolume = maxVolume
+    // Monitor system volume changes using ContentObserver (no polling)
+    DisposableEffect(Unit) {
+        val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+        val volumeObserver = object : android.database.ContentObserver(android.os.Handler(android.os.Looper.getMainLooper())) {
+            override fun onChange(selfChange: Boolean) {
+                val cv = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)
+                val mv = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
+                val newVol = cv.toFloat() / mv.toFloat()
+                if (newVol != systemVolume) {
+                    systemVolume = newVol
+                    systemMaxVolume = mv
+                }
             }
-            
-            delay(800) // Check every 500ms
+        }
+        context.contentResolver.registerContentObserver(
+            android.provider.Settings.System.CONTENT_URI,
+            true,
+            volumeObserver
+        )
+        onDispose {
+            context.contentResolver.unregisterContentObserver(volumeObserver)
         }
     }
 
@@ -253,34 +256,34 @@ fun PlaybackBottomSheet(
                     }
                 }
                 
-                // Playback Settings Section
+                // Playback Quick Settings Section
                 item {
                     AnimateIn {
-                        PlaybackSettingsCard(
+                        PlaybackQuickSettingsCard(
                             gaplessPlayback = gaplessPlayback,
-                            shuffleUsesExoplayer = shuffleUsesExoplayer,
-                            autoAddToQueue = autoAddToQueue,
-                            clearQueueOnNewSong = clearQueueOnNewSong,
-                            shuffleModePersistence = shuffleModePersistence,
-                            repeatModePersistence = repeatModePersistence,
-                            lyricsSourcePreference = lyricsSourcePreference,
                             useSystemVolume = useSystemVolume,
-                            queuePersistenceEnabled = queuePersistenceEnabled,
                             crossfadeEnabled = crossfadeEnabled,
                             crossfadeDuration = crossfadeDuration,
                             onGaplessPlaybackChange = {
                                 musicViewModel.setGaplessPlayback(it)
                             },
-                            onShuffleUsesExoplayerChange = { appSettings.setShuffleUsesExoplayer(it) },
-                            onAutoAddToQueueChange = { appSettings.setAutoAddToQueue(it) },
-                            onClearQueueOnNewSongChange = { appSettings.setClearQueueOnNewSong(it) },
-                            onShuffleModePersistenceChange = { appSettings.setShuffleModePersistence(it) },
-                            onRepeatModePersistenceChange = { appSettings.setRepeatModePersistence(it) },
-                            onLyricsSourcePreferenceChange = { appSettings.setLyricsSourcePreference(it) },
                             onUseSystemVolumeChange = { appSettings.setUseSystemVolume(it) },
-                            onQueuePersistenceEnabledChange = { appSettings.setQueuePersistenceEnabled(it) },
                             onCrossfadeEnabledChange = { appSettings.setCrossfade(it) },
                             onCrossfadeDurationChange = { appSettings.setCrossfadeDuration(it) },
+                            haptics = haptics,
+                            context = context
+                        )
+                    }
+                }
+                
+                // Playback Pitch Section
+                item {
+                    AnimateIn {
+                        PlaybackPitchCard(
+                            currentPitch = playbackPitch,
+                            onPitchChange = { pitch ->
+                                musicViewModel.setPlaybackPitch(pitch)
+                            },
                             haptics = haptics,
                             context = context
                         )
@@ -298,6 +301,45 @@ fun PlaybackBottomSheet(
                             haptics = haptics,
                             context = context
                         )
+                    }
+                }
+                
+                // Info link to full playback settings
+                if (onNavigateToSettings != null) {
+                    item {
+                        AnimateIn {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .padding(horizontal = 24.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.Center
+                            ) {
+                                Icon(
+                                    imageVector = RhythmIcons.Settings,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = "More adjustments in ",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                                )
+                                Text(
+                                    text = context.getString(R.string.settings_queue_playback_title),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(4.dp))
+                                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.08f))
+                                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -389,7 +431,7 @@ private fun ActiveDeviceCard(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(20.dp)
+                .padding(16.dp)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -399,7 +441,8 @@ private fun ActiveDeviceCard(
                     text = context.getString(R.string.active_device),
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
+                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f),
+                    maxLines = 1
                 )
                 
                 Spacer(modifier = Modifier.weight(1f))
@@ -440,7 +483,7 @@ private fun ActiveDeviceCard(
                 }
             }
             
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(10.dp))
             
             // Device info
             if (location != null) {
@@ -448,9 +491,9 @@ private fun ActiveDeviceCard(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    // Device icon background
+                    // Device icon background - smaller for compact screens
                     Surface(
-                        modifier = Modifier.size(56.dp),
+                        modifier = Modifier.size(44.dp),
                         shape = CircleShape,
                         color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.15f)
                     ) {
@@ -459,12 +502,12 @@ private fun ActiveDeviceCard(
                                 imageVector = getDeviceIcon(location),
                                 contentDescription = null,
                                 tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                                modifier = Modifier.size(28.dp)
+                                modifier = Modifier.size(22.dp)
                             )
                         }
                     }
                     
-                    Spacer(modifier = Modifier.width(16.dp))
+                    Spacer(modifier = Modifier.width(12.dp))
                     
                     // Device details
                     Column(
@@ -472,14 +515,14 @@ private fun ActiveDeviceCard(
                     ) {
                         Text(
                             text = location.name,
-                            style = MaterialTheme.typography.titleLarge,
+                            style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onPrimaryContainer,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
                         
-                        Spacer(modifier = Modifier.height(4.dp))
+                        Spacer(modifier = Modifier.height(2.dp))
                         
                         val typeDescription = when {
                             location.id.startsWith("bt_") -> "Bluetooth device"
@@ -488,32 +531,32 @@ private fun ActiveDeviceCard(
                             else -> "Audio device"
                         }
                         
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = typeDescription,
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
-                            )
-                            
-                            Spacer(modifier = Modifier.width(8.dp))
-                            
-                            Text(
-                                text = "• Tap to switch",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.5f)
+                        Text(
+                            text = "$typeDescription • Tap to switch",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.6f),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                    
+                    Spacer(modifier = Modifier.width(8.dp))
+                    
+                    // Active indicator with switch icon
+                    Surface(
+                        shape = CircleShape,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.12f),
+                        modifier = Modifier.size(32.dp)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = Icons.Rounded.SyncAlt,
+                                contentDescription = "Switch device",
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(18.dp)
                             )
                         }
                     }
-                    
-                    // Active indicator with switch icon
-                    Icon(
-                        imageVector = Icons.Rounded.SyncAlt,
-                        contentDescription = "Switch device",
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(24.dp)
-                    )
                 }
             } else {
                 // No device state
@@ -528,13 +571,15 @@ private fun ActiveDeviceCard(
                         modifier = Modifier.size(28.dp)
                     )
                     
-                    Spacer(modifier = Modifier.width(16.dp))
+                    Spacer(modifier = Modifier.width(12.dp))
                     
-                    Column {
+                    Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = context.getString(R.string.bottomsheet_no_device),
                             style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
+                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                         
                         Text(
@@ -941,7 +986,7 @@ private fun PlaybackSpeedCard(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Text(
-                        text = "2.0x",
+                        text = "3.0x",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -958,8 +1003,8 @@ private fun PlaybackSpeedCard(
                     onValueChangeFinished = {
                         onSpeedChange(selectedSpeed)
                     },
-                    valueRange = 0.25f..2.0f,
-                    steps = 6,
+                    valueRange = 0.25f..3.0f,
+                    steps = 10,
                     colors = SliderDefaults.colors(
                         thumbColor = MaterialTheme.colorScheme.primary,
                         activeTrackColor = MaterialTheme.colorScheme.primary,
@@ -975,7 +1020,7 @@ private fun PlaybackSpeedCard(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 modifier = Modifier.fillMaxWidth()
             ) {
-                items(listOf(0.5f, 0.75f, 1.0f, 1.25f, 1.5f, 2.0f)) { presetSpeed ->
+                items(listOf(0.5f, 0.75f, 1.0f, 1.25f, 1.5f, 2.0f, 2.5f, 3.0f)) { presetSpeed ->
                     AssistChip(
                         onClick = {
                             selectedSpeed = presetSpeed
@@ -1009,27 +1054,13 @@ private fun PlaybackSpeedCard(
 }
 
 @Composable
-private fun PlaybackSettingsCard(
+private fun PlaybackQuickSettingsCard(
     gaplessPlayback: Boolean,
-    shuffleUsesExoplayer: Boolean,
-    autoAddToQueue: Boolean,
-    clearQueueOnNewSong: Boolean,
-    shuffleModePersistence: Boolean,
-    repeatModePersistence: Boolean,
-    lyricsSourcePreference: LyricsSourcePreference,
     useSystemVolume: Boolean,
-    queuePersistenceEnabled: Boolean,
     crossfadeEnabled: Boolean,
     crossfadeDuration: Float,
     onGaplessPlaybackChange: (Boolean) -> Unit,
-    onShuffleUsesExoplayerChange: (Boolean) -> Unit,
-    onAutoAddToQueueChange: (Boolean) -> Unit,
-    onClearQueueOnNewSongChange: (Boolean) -> Unit,
-    onShuffleModePersistenceChange: (Boolean) -> Unit,
-    onRepeatModePersistenceChange: (Boolean) -> Unit,
-    onLyricsSourcePreferenceChange: (LyricsSourcePreference) -> Unit,
     onUseSystemVolumeChange: (Boolean) -> Unit,
-    onQueuePersistenceEnabledChange: (Boolean) -> Unit,
     onCrossfadeEnabledChange: (Boolean) -> Unit,
     onCrossfadeDurationChange: (Float) -> Unit,
     haptics: androidx.compose.ui.hapticfeedback.HapticFeedback,
@@ -1060,7 +1091,7 @@ private fun PlaybackSettingsCard(
             ) {
                 Icon(
                     imageVector = RhythmIcons.Settings,
-                    contentDescription = "Playback Settings",
+                    contentDescription = "Quick Settings",
                     tint = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.size(24.dp)
                 )
@@ -1074,16 +1105,6 @@ private fun PlaybackSettingsCard(
                     color = MaterialTheme.colorScheme.onSurface
                 )
             }
-
-            // Spacer(modifier = Modifier.height(20.dp))
-
-            // // ExoPlayer Settings Section
-            // Text(
-            //     text = "ExoPlayer Settings",
-            //     style = MaterialTheme.typography.bodyLarge,
-            //     fontWeight = FontWeight.Medium,
-            //     color = MaterialTheme.colorScheme.onSurface
-            // )
 
             Spacer(modifier = Modifier.height(16.dp))
 
@@ -1123,147 +1144,178 @@ private fun PlaybackSettingsCard(
                 }
             )
 
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Use ExoPlayer Shuffle
-            AudioSettingRow(
-                title = "Use ExoPlayer Shuffle",
-                description = "Let media player handle shuffle (recommended: OFF)",
-                enabled = shuffleUsesExoplayer,
-                onToggle = {
-                    HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
-                    onShuffleUsesExoplayerChange(it)
+            // Crossfade duration slider (visible when crossfade enabled)
+            AnimatedVisibility(visible = crossfadeEnabled) {
+                Column {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Duration",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.weight(1f)
+                        )
+                        Text(
+                            text = "${String.format("%.1f", crossfadeDuration)}s",
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                    Slider(
+                        value = crossfadeDuration,
+                        onValueChange = { onCrossfadeDurationChange(it) },
+                        valueRange = 1f..10f,
+                        steps = 8,
+                        colors = SliderDefaults.colors(
+                            thumbColor = MaterialTheme.colorScheme.primary,
+                            activeTrackColor = MaterialTheme.colorScheme.primary,
+                            inactiveTrackColor = MaterialTheme.colorScheme.surfaceVariant
+                        )
+                    )
                 }
-            )
+            }
+        }
+    }
+}
 
-            // Spacer(modifier = Modifier.height(20.dp))
-            // HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-            // Spacer(modifier = Modifier.height(20.dp))
-
-            // // Queue & Playback Section
-            // Text(
-            //     text = "Queue & Playback",
-            //     style = MaterialTheme.typography.bodyLarge,
-            //     fontWeight = FontWeight.Medium,
-            //     color = MaterialTheme.colorScheme.onSurface
-            // )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Auto Queue
-            AudioSettingRow(
-                title = "Auto Queue",
-                description = "Automatically add related songs to queue",
-                enabled = autoAddToQueue,
-                onToggle = {
-                    HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
-                    onAutoAddToQueueChange(it)
-                }
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Clear Queue on New Song
-            AudioSettingRow(
-                title = "Clear Queue on New Song",
-                description = "Clear the current queue when playing a new song directly",
-                enabled = clearQueueOnNewSong,
-                onToggle = {
-                    HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
-                    onClearQueueOnNewSongChange(it)
-                }
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Remember Shuffle Mode
-            AudioSettingRow(
-                title = "Remember Shuffle Mode",
-                description = "Persist shuffle state across sessions",
-                enabled = shuffleModePersistence,
-                onToggle = {
-                    HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
-                    onShuffleModePersistenceChange(it)
-                }
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Remember Queue
-            AudioSettingRow(
-                title = "Remember Queue",
-                description = "Save and restore queue when restarting app",
-                enabled = queuePersistenceEnabled,
-                onToggle = {
-                    HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
-                    onQueuePersistenceEnabledChange(it)
-                }
-            )
-
-            Spacer(modifier = Modifier.height(20.dp))
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-            Spacer(modifier = Modifier.height(20.dp))
-
-            // Lyrics Source Priority
-            Column(
-                modifier = Modifier.fillMaxWidth()
+@Composable
+private fun PlaybackPitchCard(
+    currentPitch: Float,
+    onPitchChange: (Float) -> Unit,
+    haptics: androidx.compose.ui.hapticfeedback.HapticFeedback,
+    context: Context,
+    modifier: Modifier = Modifier
+) {
+    var selectedPitch by remember(currentPitch) { mutableFloatStateOf(currentPitch) }
+    
+    Card(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 24.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        ),
+        shape = RoundedCornerShape(20.dp),
+        elevation = CardDefaults.cardElevation(
+            defaultElevation = 0.dp
+        )
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(24.dp)
+        ) {
+            // Header
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
             ) {
+                Icon(
+                    imageVector = Icons.Filled.GraphicEq,
+                    contentDescription = "Playback Pitch",
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(24.dp)
+                )
+                
+                Spacer(modifier = Modifier.width(12.dp))
+                
                 Text(
-                    text = context.getString(R.string.playback_lyrics_priority),
-                    style = MaterialTheme.typography.bodyLarge,
-                    fontWeight = FontWeight.Medium,
+                    text = context.getString(R.string.player_pitch_label),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onSurface
                 )
-                Spacer(modifier = Modifier.height(8.dp))
+                
+                Spacer(modifier = Modifier.weight(1f))
+                
+                // Current pitch display
                 Text(
-                    text = context.getString(R.string.playback_lyrics_priority_desc),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    text = "${String.format("%.2f", selectedPitch)}x",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary
                 )
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                // Lyrics Source Options
-                LyricsSourcePreference.values().forEach { preference ->
-                    Surface(
+            }
+            
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            // Slider with labels
+            Column {
+                Row(
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        text = "0.25x",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        text = "3.0x",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                
+                Spacer(modifier = Modifier.height(8.dp))
+                
+                Slider(
+                    value = selectedPitch,
+                    onValueChange = { newValue ->
+                        selectedPitch = newValue
+                        HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
+                    },
+                    onValueChangeFinished = {
+                        onPitchChange(selectedPitch)
+                    },
+                    valueRange = 0.25f..3.0f,
+                    steps = 10,
+                    colors = SliderDefaults.colors(
+                        thumbColor = MaterialTheme.colorScheme.primary,
+                        activeTrackColor = MaterialTheme.colorScheme.primary,
+                        inactiveTrackColor = MaterialTheme.colorScheme.surfaceVariant
+                    )
+                )
+            }
+            
+            Spacer(modifier = Modifier.height(12.dp))
+            
+            // Quick preset buttons
+            LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                items(listOf(0.5f, 0.75f, 1.0f, 1.25f, 1.5f, 2.0f, 2.5f, 3.0f)) { presetPitch ->
+                    AssistChip(
                         onClick = {
+                            selectedPitch = presetPitch
+                            onPitchChange(presetPitch)
                             HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
-                            onLyricsSourcePreferenceChange(preference)
                         },
-                        shape = RoundedCornerShape(12.dp),
-                        color = if (lyricsSourcePreference == preference)
-                            MaterialTheme.colorScheme.primaryContainer
-                        else
-                            MaterialTheme.colorScheme.surfaceVariant,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 4.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(16.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
+                        label = {
                             Text(
-                                text = preference.displayName,
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = if (lyricsSourcePreference == preference)
-                                    MaterialTheme.colorScheme.onPrimaryContainer
-                                else
-                                    MaterialTheme.colorScheme.onSurfaceVariant
+                                text = "${String.format("%.2f", presetPitch)}x",
+                                style = MaterialTheme.typography.labelMedium
                             )
-                            if (lyricsSourcePreference == preference) {
-                                Icon(
-                                    imageVector = RhythmIcons.Check,
-                                    contentDescription = "Selected",
-                                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                            }
-                        }
-                    }
+                        },
+                        modifier = Modifier.height(32.dp),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = AssistChipDefaults.assistChipColors(
+                            containerColor = if (selectedPitch == presetPitch)
+                                MaterialTheme.colorScheme.primaryContainer
+                            else
+                                MaterialTheme.colorScheme.surfaceVariant,
+                            labelColor = if (selectedPitch == presetPitch)
+                                MaterialTheme.colorScheme.onPrimaryContainer
+                            else
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                        ),
+                        border = null
+                    )
                 }
             }
         }

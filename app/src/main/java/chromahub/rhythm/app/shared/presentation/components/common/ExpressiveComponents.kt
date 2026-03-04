@@ -9,6 +9,7 @@ import androidx.compose.animation.core.AnimationSpec
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.spring
@@ -2113,16 +2114,15 @@ fun ShimmerBox(modifier: Modifier = Modifier) {
         baseColor,
     )
 
-    var offset by remember { mutableStateOf(0f) }
-    
-    LaunchedEffect(Unit) {
-        while (true) {
-            offset = 0f
-            delay(600) // Half the animation duration
-            offset = 1000f
-            delay(400)
-        }
-    }
+    val transition = rememberInfiniteTransition(label = "expressiveShimmer")
+    val offset by transition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1000f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 1000, delayMillis = 300),
+        ),
+        label = "expressiveShimmerOffset"
+    )
 
     val brush = androidx.compose.ui.graphics.Brush.linearGradient(
         colors = shimmerColors,

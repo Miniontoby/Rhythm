@@ -636,17 +636,9 @@ class MusicRepository(context: Context) {
             val title = cursor.getString(indices.title)?.trim() ?: return null
             val rawArtist = cursor.getString(indices.artist)?.trim() ?: "Unknown Artist"
             
-            // Parse multiple artists from the artist string using configured delimiters
-            val appSettings = AppSettings.getInstance(context)
-            val artistSeparatorEnabled = appSettings.artistSeparatorEnabled.value
-            val delimiters = appSettings.artistSeparatorDelimiters.value
-            
-            // Get primary artist for the Song object (first artist in the list)
-            val artist = chromahub.rhythm.app.util.ArtistSeparator.getPrimaryArtist(
-                rawArtist,
-                delimiters,
-                artistSeparatorEnabled
-            )
+            // Keep the full artist string so songs appear under all their artists.
+            // The display-time splitArtistNames logic handles splitting for grouping/filtering.
+            val artist = rawArtist
             
             val album = cursor.getString(indices.album)?.trim() ?: "Unknown Album"
             val albumId = cursor.getLong(indices.albumId)
@@ -681,6 +673,7 @@ class MusicRepository(context: Context) {
             )
 
             // Determine album art URI based on user preference
+            val appSettings = AppSettings.getInstance(context)
             val ignoreMediaStoreCovers = appSettings.ignoreMediaStoreCovers.value
             val losslessArtwork = appSettings.losslessArtwork.value
             
@@ -1222,8 +1215,17 @@ class MusicRepository(context: Context) {
      * Returns a list of individual artist names.
      */
     fun splitArtistNames(artistName: String): List<String> {
-        // Common separators for collaborations
-        val separators = listOf(
+        // Character-level delimiters from artist separator settings
+        val appSettings = AppSettings.getInstance(context)
+        val artistSeparatorEnabled = appSettings.artistSeparatorEnabled.value
+        val charDelimiters = if (artistSeparatorEnabled) {
+            appSettings.artistSeparatorDelimiters.value.toList().map { it.toString() }
+        } else {
+            emptyList()
+        }
+        
+        // Word-level separators for collaborations
+        val wordSeparators = listOf(
             " & ",
             " and ",
             ", ",
@@ -1241,8 +1243,13 @@ class MusicRepository(context: Context) {
         
         var names = listOf(artistName)
         
-        // Split on each separator
-        for (separator in separators) {
+        // Split on character-level delimiters first (/, ;, etc.)
+        for (delimiter in charDelimiters) {
+            names = names.flatMap { it.split(delimiter) }
+        }
+        
+        // Then split on word-level separators
+        for (separator in wordSeparators) {
             names = names.flatMap { it.split(separator, ignoreCase = true) }
         }
         

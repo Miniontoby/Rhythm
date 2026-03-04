@@ -23,7 +23,12 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccessTime
+import androidx.compose.material.icons.filled.Album
+import androidx.compose.material.icons.filled.Cast
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.GraphicEq
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.rounded.AccessTime
 import androidx.compose.material.icons.rounded.Edit
@@ -70,11 +75,17 @@ fun ExtraControlBottomSheet(
     sleepTimerActive: Boolean,
     sleepTimerRemainingSeconds: Long,
     lyrics: LyricsData?,
+    isFavorite: Boolean = false,
     onAddToPlaylist: () -> Unit,
+    onToggleFavorite: () -> Unit = {},
     onPlaybackSpeed: () -> Unit,
+    onPlaybackPitch: () -> Unit = {},
     onEqualizer: () -> Unit,
     onSleepTimer: () -> Unit,
     onLyricsEditor: () -> Unit,
+    onAlbum: () -> Unit = {},
+    onArtist: () -> Unit = {},
+    onCast: () -> Unit = {},
     onSongInfo: () -> Unit,
     haptic: HapticFeedback,
     isExtraSmallWidth: Boolean = false,
@@ -242,13 +253,36 @@ fun ExtraControlBottomSheet(
                     }
                 )
 
-                if ("PLAYBACK_SPEED" !in hiddenChips) {
+                if ("FAVORITE" !in hiddenChips) {
+                    BottomSheetActionRow(
+                        icon = if (isFavorite) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
+                        label = if (isFavorite) "Remove from Favorites" else "Add to Favorites",
+                        isActive = isFavorite,
+                        onClick = {
+                            HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.LongPress)
+                            dismissAndDo { onToggleFavorite() }
+                        }
+                    )
+                }
+
+                if ("SPEED" !in hiddenChips) {
                     BottomSheetActionRow(
                         icon = Icons.Filled.Speed,
                         label = "Playback Speed",
                         onClick = {
                             HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.LongPress)
                             dismissAndDo { onPlaybackSpeed() }
+                        }
+                    )
+                }
+
+                if ("PITCH" !in hiddenChips) {
+                    BottomSheetActionRow(
+                        icon = Icons.Filled.GraphicEq,
+                        label = "Playback Pitch",
+                        onClick = {
+                            HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.LongPress)
+                            dismissAndDo { onPlaybackPitch() }
                         }
                     )
                 }
@@ -299,6 +333,39 @@ fun ExtraControlBottomSheet(
                         onClick = {
                             HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.LongPress)
                             dismissAndDo { onSongInfo() }
+                        }
+                    )
+                }
+
+                if ("ALBUM" !in hiddenChips) {
+                    BottomSheetActionRow(
+                        icon = Icons.Filled.Album,
+                        label = "Go to Album",
+                        onClick = {
+                            HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.LongPress)
+                            dismissAndDo { onAlbum() }
+                        }
+                    )
+                }
+
+                if ("ARTIST" !in hiddenChips) {
+                    BottomSheetActionRow(
+                        icon = Icons.Filled.Person,
+                        label = "Go to Artist",
+                        onClick = {
+                            HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.LongPress)
+                            dismissAndDo { onArtist() }
+                        }
+                    )
+                }
+
+                if ("CAST" !in hiddenChips) {
+                    BottomSheetActionRow(
+                        icon = Icons.Filled.Cast,
+                        label = "Cast",
+                        onClick = {
+                            HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.LongPress)
+                            dismissAndDo { onCast() }
                         }
                     )
                 }

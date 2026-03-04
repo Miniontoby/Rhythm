@@ -128,7 +128,8 @@ object ImageUtils {
         data: Any?,
         name: String?,
         cacheDir: File,
-        type: M3PlaceholderType = M3PlaceholderType.GENERAL
+        type: M3PlaceholderType = M3PlaceholderType.GENERAL,
+        lossless: Boolean = false
     ): ImageRequest.Builder.() -> Unit = {
         // Set the main data source
         data(data)
@@ -155,8 +156,8 @@ object ImageUtils {
         diskCachePolicy(coil.request.CachePolicy.ENABLED)
         memoryCachePolicy(coil.request.CachePolicy.ENABLED)
         
-        // Set bitmap format to optimize memory usage
-        bitmapConfig(Bitmap.Config.RGB_565) // Uses less memory than ARGB_8888
+        // Set bitmap format — use ARGB_8888 for lossless quality, RGB_565 for memory savings
+        bitmapConfig(if (lossless) Bitmap.Config.ARGB_8888 else Bitmap.Config.RGB_565)
         
         // Add a listener to handle the result
         listener(

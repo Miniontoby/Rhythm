@@ -489,6 +489,45 @@ fun buildSettingsSearchIndex(context: Context): List<SearchableSettingItem> {
             parentScreen = "Player"
         ))
         add(SearchableSettingItem(
+            id = "keep_screen_on_lyrics",
+            title = "Keep Screen Awake",
+            description = "Prevent screen from turning off while lyrics are visible",
+            keywords = listOf("screen", "awake", "wake", "lyrics", "screen on", "display", "timeout", "dim"),
+            icon = Icons.Default.Visibility,
+            route = SettingsRoutes.PLAYER_CUSTOMIZATION,
+            parentScreen = "Player",
+            settingKey = "keepScreenOnLyrics"
+        ))
+        add(SearchableSettingItem(
+            id = "embed_lyrics_in_file",
+            title = "Embed Lyrics in File",
+            description = "Write lyrics directly into audio file metadata",
+            keywords = listOf("embed", "lyrics", "file", "metadata", "write", "save", "tag", "id3"),
+            icon = Icons.Default.MusicNote,
+            route = SettingsRoutes.PLAYER_CUSTOMIZATION,
+            parentScreen = "Player"
+        ))
+        add(SearchableSettingItem(
+            id = "playback_pitch",
+            title = "Playback Pitch",
+            description = "Adjust audio pitch independently from speed",
+            keywords = listOf("pitch", "tone", "semitone", "key", "audio pitch", "higher", "lower"),
+            icon = Icons.Default.Equalizer,
+            route = null,
+            parentScreen = "Player",
+            settingKey = "playbackPitch"
+        ))
+        add(SearchableSettingItem(
+            id = "lossless_artwork",
+            title = "Lossless Artwork",
+            description = "Save album art as PNG instead of compressed JPEG",
+            keywords = listOf("lossless", "artwork", "png", "quality", "album art", "image", "uncompressed", "high quality"),
+            icon = Icons.Default.HighQuality,
+            route = SettingsRoutes.EXPERIMENTAL_FEATURES,
+            parentScreen = "Experimental",
+            settingKey = "losslessArtwork"
+        ))
+        add(SearchableSettingItem(
             id = "player_gradient",
             title = "Gradient Overlay",
             description = "Show gradient overlay on album artwork",
