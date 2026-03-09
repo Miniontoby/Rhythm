@@ -36,6 +36,7 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.*
 import androidx.compose.runtime.collectAsState
@@ -199,6 +200,7 @@ import chromahub.rhythm.app.features.local.presentation.components.bottomsheets.
 import chromahub.rhythm.app.features.local.presentation.components.bottomsheets.AlbumBottomSheet
 import chromahub.rhythm.app.features.local.presentation.components.bottomsheets.ArtistBottomSheet
 import chromahub.rhythm.app.features.local.presentation.components.settings.LibraryTabOrderBottomSheet
+import chromahub.rhythm.app.features.local.presentation.components.bottomsheets.BatchEditTagsSheet
 import chromahub.rhythm.app.features.local.presentation.components.bottomsheets.MultiSelectionBottomSheet
 import chromahub.rhythm.app.util.ImageUtils
 import chromahub.rhythm.app.util.M3ImageUtils
@@ -412,6 +414,7 @@ fun LibraryScreen(
     val isSelectionMode by multiSelectionState.isSelectionMode.collectAsState()
     val selectedSongIds by multiSelectionState.selectedSongIds.collectAsState()
     var showMultiSelectionSheet by remember { mutableStateOf(false) }
+    var showBatchEditSheet by remember { mutableStateOf(false) }
     
     // Multi-selection callbacks
     val onSongLongPress: (Song) -> Unit = remember(multiSelectionState) {
@@ -643,15 +646,15 @@ fun LibraryScreen(
     
     // Playlist Management now handled in Tuner > Playlists settings
     
-    // Track media scanning state for pull-to-refresh
-    val isMediaScanning by musicViewModel.isMediaScanning.collectAsState()
+    // Track library refreshing state for pull-to-refresh
+    val isLibraryRefreshing by musicViewModel.isLibraryRefreshing.collectAsState()
     val scanProgress by musicViewModel.scanProgress.collectAsState()
     val pullToRefreshState = rememberPullToRefreshState()
     var isRefreshing by remember { mutableStateOf(false) }
     
-    // Update refreshing state based on media scanning
-    LaunchedEffect(isMediaScanning) {
-        isRefreshing = isMediaScanning
+    // Update refreshing state based on library refreshing
+    LaunchedEffect(isLibraryRefreshing) {
+        isRefreshing = isLibraryRefreshing
     }
     
     // BackHandler for selection mode
@@ -700,6 +703,38 @@ fun LibraryScreen(
                 selectedSongs.firstOrNull()?.let { song ->
                     appSettings.addToBlacklist(song.id)
                 }
+            },
+            onBatchEditTags = {
+                showMultiSelectionSheet = false
+                showBatchEditSheet = true
+            }
+        )
+    }
+
+    // Batch edit tags sheet
+    if (showBatchEditSheet && selectedSongs.isNotEmpty()) {
+        BatchEditTagsSheet(
+            selectedSongs = selectedSongs,
+            onDismiss = {
+                showBatchEditSheet = false
+                multiSelectionState.clearSelection()
+            },
+            onSave = { artist, album, genre, year ->
+                musicViewModel.batchEditMetadata(
+                    songs = selectedSongs,
+                    artist = artist,
+                    album = album,
+                    genre = genre,
+                    year = year,
+                    onProgress = { _, _ -> },
+                    onComplete = { successCount, failCount ->
+                        showBatchEditSheet = false
+                        multiSelectionState.clearSelection()
+                        val msg = if (failCount == 0) "Updated $successCount songs"
+                                  else "Updated $successCount songs, $failCount failed"
+                        android.widget.Toast.makeText(context, msg, android.widget.Toast.LENGTH_SHORT).show()
+                    }
+                )
             }
         )
     }
@@ -1407,7 +1442,14 @@ fun LibraryScreen(
                         }
                     },
                     state = pullToRefreshState,
-                    modifier = Modifier.fillMaxSize()
+                    modifier = Modifier.fillMaxSize(),
+                    indicator = {
+                        PullToRefreshDefaults.LoadingIndicator(
+                            state = pullToRefreshState,
+                            isRefreshing = isRefreshing,
+                            modifier = Modifier.align(Alignment.TopCenter)
+                        )
+                    }
                 ) {
                     Box(modifier = Modifier.fillMaxSize()) {
                         // Content with animation
@@ -3186,7 +3228,6 @@ fun SingleCardAlbumsContent(
         }
     }
 }
-
 
 
 @Composable

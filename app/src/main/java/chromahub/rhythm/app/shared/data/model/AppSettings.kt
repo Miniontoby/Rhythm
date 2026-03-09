@@ -62,6 +62,8 @@ class AppSettings private constructor(context: Context) {
         private const val KEY_AUDIO_NORMALIZATION = "audio_normalization"
         private const val KEY_REPLAY_GAIN = "replay_gain"
         private const val KEY_BIT_PERFECT_MODE = "bit_perfect_mode"
+        private const val KEY_AUDIO_ROUTING_MODE = "audio_routing_mode" // "default", "app", "system"
+        private const val KEY_STORAGE_MODE = "storage_mode" // "json", "room"
         
         // Lyrics Settings
         private const val KEY_SHOW_LYRICS = "show_lyrics"
@@ -435,6 +437,12 @@ class AppSettings private constructor(context: Context) {
     
     private val _bitPerfectMode = MutableStateFlow(prefs.getBoolean(KEY_BIT_PERFECT_MODE, false))
     val bitPerfectMode: StateFlow<Boolean> = _bitPerfectMode.asStateFlow()
+    
+    private val _audioRoutingMode = MutableStateFlow(prefs.getString(KEY_AUDIO_ROUTING_MODE, "default") ?: "default")
+    val audioRoutingMode: StateFlow<String> = _audioRoutingMode.asStateFlow()
+    
+    private val _storageMode = MutableStateFlow(prefs.getString(KEY_STORAGE_MODE, "json") ?: "json")
+    val storageMode: StateFlow<String> = _storageMode.asStateFlow()
     
     // Lyrics Settings
     private val _showLyrics = MutableStateFlow(prefs.getBoolean(KEY_SHOW_LYRICS, true))
@@ -1245,6 +1253,20 @@ private val _autoCheckForUpdates = MutableStateFlow(prefs.getBoolean(KEY_AUTO_CH
         prefs.edit().putBoolean(KEY_BIT_PERFECT_MODE, enable).apply()
         _bitPerfectMode.value = enable
         Log.d("AppSettings", "Bit-perfect mode ${if (enable) "enabled" else "disabled"} - audio will be output at native sample rate")
+    }
+    
+    fun setAudioRoutingMode(mode: String) {
+        require(mode in listOf("default", "app", "system")) { "Invalid audio routing mode: $mode" }
+        prefs.edit().putString(KEY_AUDIO_ROUTING_MODE, mode).apply()
+        _audioRoutingMode.value = mode
+        Log.d("AppSettings", "Audio routing mode set to: $mode")
+    }
+    
+    fun setStorageMode(mode: String) {
+        require(mode in listOf("json", "room")) { "Invalid storage mode: $mode" }
+        prefs.edit().putString(KEY_STORAGE_MODE, mode).apply()
+        _storageMode.value = mode
+        Log.d("AppSettings", "Storage mode set to: $mode")
     }
     
     fun setAudioNormalization(enable: Boolean) {

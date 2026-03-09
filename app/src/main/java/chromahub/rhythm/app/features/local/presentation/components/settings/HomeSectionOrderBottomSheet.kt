@@ -29,6 +29,7 @@ import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.InsertChart
 import androidx.compose.material.icons.filled.NewReleases
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.filled.Recommend
 import androidx.compose.material.icons.filled.RestartAlt
 import androidx.compose.material.icons.filled.Visibility
@@ -89,8 +90,9 @@ fun HomeSectionOrderBottomSheet(
     val showRecommended by appSettings.homeShowRecommended.collectAsState()
     val showListeningStats by appSettings.homeShowListeningStats.collectAsState()
     
-    // Greeting should always be first and not reorderable
-    var reorderableList by remember { mutableStateOf(sectionOrder.filter { it != "GREETING" && it != "MOOD" }.toList()) }
+    // Fixed sections: GREETING always first, DISCOVER always second (not reorderable)
+    val fixedSections = setOf("GREETING", "DISCOVER", "MOOD")
+    var reorderableList by remember { mutableStateOf(sectionOrder.filter { it !in fixedSections }.toList()) }
     var visibilityMap by remember {
         mutableStateOf(
             mapOf(
@@ -179,6 +181,93 @@ fun HomeSectionOrderBottomSheet(
                 }
                 
                 Spacer(modifier = Modifier.height(24.dp))
+            }
+            
+            // Fixed Discover Carousel section (always second, not reorderable)
+            item(key = "fixed_discover") {
+                val (discoverName, discoverIcon) = getSectionInfo("DISCOVER")
+                val isDiscoverVisible = visibilityMap["DISCOVER"] ?: true
+                
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 4.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceContainerHighest
+                    ),
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(16.dp),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            // Fixed position indicator
+                            Surface(
+                                shape = CircleShape,
+                                color = MaterialTheme.colorScheme.tertiaryContainer,
+                                modifier = Modifier.size(36.dp)
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(
+                                        imageVector = Icons.Default.PushPin,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.onTertiaryContainer,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
+                            }
+                            
+                            Icon(
+                                imageVector = discoverIcon,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(24.dp)
+                            )
+                            
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = discoverName,
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Medium,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    text = "Fixed position",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                        
+                        // Visibility toggle only (no reorder buttons)
+                        IconButton(
+                            onClick = {
+                                HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
+                                visibilityMap = visibilityMap.toMutableMap().apply {
+                                    this["DISCOVER"] = !isDiscoverVisible
+                                }
+                            },
+                            modifier = Modifier.size(40.dp)
+                        ) {
+                            Icon(
+                                imageVector = if (isDiscoverVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
+                                contentDescription = if (isDiscoverVisible) "Hide carousel" else "Show carousel",
+                                tint = if (isDiscoverVisible) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                    }
+                }
+                
+                Spacer(modifier = Modifier.height(8.dp))
             }
             
             // Reorderable list
@@ -348,7 +437,7 @@ fun HomeSectionOrderBottomSheet(
                     onClick = {
                         HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
                         val defaultOrder = listOf(
-                            "RECENTLY_PLAYED", "DISCOVER", "ARTISTS", 
+                            "RECENTLY_PLAYED", "ARTISTS", 
                             "NEW_RELEASES", "RECENTLY_ADDED", "RECOMMENDED", "STATS"
                         )
                         reorderableList = defaultOrder
@@ -380,8 +469,8 @@ fun HomeSectionOrderBottomSheet(
                     onClick = {
                         HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
                         
-                        // Save section order (always prepend GREETING as first)
-                        val finalOrder = listOf("GREETING") + reorderableList
+                        // Save section order (GREETING first, DISCOVER second, then user-ordered sections)
+                        val finalOrder = listOf("GREETING", "DISCOVER") + reorderableList
                         appSettings.setHomeSectionOrder(finalOrder)
                         
                         // Save visibility for each section (greeting always visible)

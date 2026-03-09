@@ -1,6 +1,7 @@
 [versions]
-agp = "8.13.2"
+agp = "9.1.0"
 kotlin = "2.3.10"
+ksp = "2.3.6"
 coreKtx = "1.17.0"
 splashscreen = "1.2.0"
 junit = "4.13.2"
@@ -32,9 +33,12 @@ androidx-material3 = { group = "androidx.compose.material3", name = "material3" 
 androidx-foundation-layout = { group = "androidx.compose.foundation", name = "foundation-layout", version.ref = "foundationLayout" }
 androidx-compose-animation-core = { group = "androidx.compose.animation", name = "animation-core", version.ref = "animationCore" }
 androidx-room-ktx = { group = "androidx.room", name = "room-ktx", version.ref = "roomKtx" }
+androidx-room-runtime = { group = "androidx.room", name = "room-runtime", version.ref = "roomKtx" }
+androidx-room-compiler = { group = "androidx.room", name = "room-compiler", version.ref = "roomKtx" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
+ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
 

@@ -498,6 +498,8 @@ fun QueuePlaybackSettingsScreen(onBackClick: () -> Unit) {
     val crossfadeEnabled by appSettings.crossfade.collectAsState()
     val crossfadeDuration by appSettings.crossfadeDuration.collectAsState()
     val stopPlaybackOnAppClose by appSettings.stopPlaybackOnAppClose.collectAsState()
+    val audioRoutingMode by appSettings.audioRoutingMode.collectAsState()
+    val bitPerfectMode by appSettings.bitPerfectMode.collectAsState()
 
     var showPlaylistBehaviorDialog by remember { mutableStateOf(false) }
     var showQueueDialogSettingDialog by remember { mutableStateOf(false) }
@@ -534,17 +536,17 @@ fun QueuePlaybackSettingsScreen(onBackClick: () -> Unit) {
                     ),
                     SettingItem(
                         RhythmIcons.Queue,
-                        "Queue Action Dialog",
-                        if (showQueueDialog) "Ask what to do when queue is not empty" else "Always add to queue when playing songs",
+                        context.getString(R.string.settings_queue_action_dialog),
+                        if (showQueueDialog) context.getString(R.string.settings_queue_action_dialog_desc_ask) else context.getString(R.string.settings_queue_action_dialog_desc_always),
                         onClick = { showQueueDialogSettingDialog = true }
                     ),
                     SettingItem(
                         androidx.compose.material.icons.Icons.AutoMirrored.Filled.QueueMusic,
-                        "Playlist Action Dialog",
+                        context.getString(R.string.settings_playlist_action_dialog),
                         when (playlistClickBehavior) {
-                            "play_all" -> "Load entire playlist to queue"
-                            "play_one" -> "Play only selected song"
-                            else -> "Ask each time"
+                            "play_all" -> context.getString(R.string.settings_playlist_action_play_all)
+                            "play_one" -> context.getString(R.string.settings_playlist_action_play_one)
+                            else -> context.getString(R.string.settings_playlist_action_ask)
                         },
                         onClick = { showPlaylistBehaviorDialog = true }
                     )
@@ -569,8 +571,8 @@ fun QueuePlaybackSettingsScreen(onBackClick: () -> Unit) {
                     ),
                     SettingItem(
                         RhythmIcons.Queue,
-                        "Remember Queue",
-                        "Save and restore queue when restarting app",
+                        context.getString(R.string.settings_remember_queue),
+                        context.getString(R.string.settings_remember_queue_desc),
                         toggleState = queuePersistenceEnabled,
                         onToggleChange = { appSettings.setQueuePersistenceEnabled(it) }
                     ),
@@ -594,6 +596,13 @@ fun QueuePlaybackSettingsScreen(onBackClick: () -> Unit) {
                         onToggleChange = { appSettings.setCrossfade(it) },
                         // Pass the crossfade duration as extra data for rendering
                         data = if (crossfadeEnabled) crossfadeDuration else null
+                    ),
+                    SettingItem(
+                        Icons.Default.HighQuality,
+                        context.getString(R.string.settings_bit_perfect_mode),
+                        if (audioRoutingMode == "app") context.getString(R.string.settings_bit_perfect_mode_desc_dac) else context.getString(R.string.settings_bit_perfect_mode_desc_native),
+                        toggleState = bitPerfectMode,
+                        onToggleChange = { appSettings.setBitPerfectMode(it) }
                     )
                 )
             ),
@@ -681,12 +690,12 @@ fun QueuePlaybackSettingsScreen(onBackClick: () -> Unit) {
                                         horizontalArrangement = Arrangement.SpaceBetween
                                     ) {
                                         Text(
-                                            text = "0.5s",
+                                            text = context.getString(R.string.settings_crossfade_min),
                                             style = MaterialTheme.typography.labelSmall,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant
                                         )
                                         Text(
-                                            text = "12s",
+                                            text = context.getString(R.string.settings_crossfade_max),
                                             style = MaterialTheme.typography.labelSmall,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant
                                         )
@@ -703,6 +712,107 @@ fun QueuePlaybackSettingsScreen(onBackClick: () -> Unit) {
                 }
             }
             
+            item(key = "audio_routing_section") {
+                Spacer(modifier = Modifier.height(24.dp))
+                Text(
+                    text = context.getString(R.string.settings_audio_routing),
+                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(start = 16.dp, bottom = 8.dp)
+                )
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(18.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(20.dp)
+                    ) {
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(16.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Surface(
+                                modifier = Modifier.size(40.dp),
+                                shape = RoundedCornerShape(34.dp),
+                                color = MaterialTheme.colorScheme.surfaceContainerHighest,
+                                tonalElevation = 0.dp
+                            ) {
+                                Box(
+                                    contentAlignment = Alignment.Center,
+                                    modifier = Modifier.fillMaxSize()
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Headphones,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(24.dp),
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                            Column {
+                                Text(
+                                    text = context.getString(R.string.settings_dac_usb_audio),
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Medium,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    text = context.getString(R.string.settings_dac_usb_audio_desc),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        ExpressiveButtonGroup(
+                            items = listOf(context.getString(R.string.settings_audio_routing_default), context.getString(R.string.settings_audio_routing_app), context.getString(R.string.settings_audio_routing_system)),
+                            selectedIndex = when (audioRoutingMode) {
+                                "default" -> 0
+                                "app" -> 1
+                                "system" -> 2
+                                else -> 0
+                            },
+                            onItemClick = { index ->
+                                when (index) {
+                                    0 -> {
+                                        appSettings.setAudioRoutingMode("default")
+                                    }
+                                    1 -> {
+                                        appSettings.setAudioRoutingMode("app")
+                                        // App routing enables bit-perfect mode for direct DAC output
+                                        if (!appSettings.bitPerfectMode.value) {
+                                            appSettings.setBitPerfectMode(true)
+                                        }
+                                    }
+                                    2 -> {
+                                        appSettings.setAudioRoutingMode("system")
+                                    }
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        Text(
+                            text = when (audioRoutingMode) {
+                                "app" -> context.getString(R.string.settings_audio_routing_app_desc)
+                                "system" -> context.getString(R.string.settings_audio_routing_system_desc)
+                                else -> context.getString(R.string.settings_audio_routing_default_desc)
+                            },
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+
             item(key = "queue_playback_bottom_spacer") { Spacer(modifier = Modifier.height(100.dp)) }
         }
     }
@@ -864,7 +974,7 @@ fun QueuePlaybackSettingsScreen(onBackClick: () -> Unit) {
                             if (playlistClickBehavior == "ask") {
                                 Icon(
                                     imageVector = Icons.Filled.CheckCircle,
-                                    contentDescription = "Selected",
+                                    contentDescription = context.getString(R.string.ui_selected),
                                     tint = MaterialTheme.colorScheme.primary,
                                     modifier = Modifier.size(28.dp)
                                 )
@@ -3368,7 +3478,7 @@ fun AboutScreen(
                         ) {
                             Image(
                                 painter = painterResource(id = chromahub.rhythm.app.R.drawable.rhythm_splash_logo),
-                                contentDescription = "Rhythm Logo",
+                                contentDescription = context.getString(R.string.updates_rhythm_logo_cd),
                                 modifier = Modifier.size(82.dp)
                             )
                             Spacer(modifier = Modifier.width(2.dp))
@@ -4328,12 +4438,12 @@ fun UpdatesSettingsScreen(onBackClick: () -> Unit) {
 
     // Determine status text for header
     val statusText = when {
-        error != null -> "Error"
-        isCheckingForUpdates -> "Checking..."
-        updateAvailable && latestVersion != null -> "Update Available"
-        !updatesEnabled -> "Updates Disabled"
-        !autoCheckForUpdates -> "Manual Check"
-        else -> "Up to Date"
+        error != null -> context.getString(R.string.updates_status_error)
+        isCheckingForUpdates -> context.getString(R.string.updates_status_checking)
+        updateAvailable && latestVersion != null -> context.getString(R.string.updates_status_update_available)
+        !updatesEnabled -> context.getString(R.string.updates_status_disabled)
+        !autoCheckForUpdates -> context.getString(R.string.updates_status_manual)
+        else -> context.getString(R.string.updates_status_up_to_date)
     }
 
     // Check for updates when the screen is first shown and updates are enabled
@@ -4344,7 +4454,7 @@ fun UpdatesSettingsScreen(onBackClick: () -> Unit) {
     }
 
     CollapsibleHeaderScreen(
-        title = "Updates",
+        title = context.getString(R.string.updates_title),
         showBackButton = true,
         onBackClick = onBackClick,
 //        actions = {
@@ -4411,7 +4521,7 @@ fun UpdatesSettingsScreen(onBackClick: () -> Unit) {
 
                         // Version info
                         Text(
-                            text = "V ${currentVersion.versionName}",
+                            text = context.getString(R.string.updates_version_prefix, currentVersion.versionName),
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurface
@@ -4420,7 +4530,7 @@ fun UpdatesSettingsScreen(onBackClick: () -> Unit) {
                         Spacer(modifier = Modifier.height(8.dp))
 
                         Text(
-                            text = "Released: ${currentVersion.releaseDate}",
+                            text = context.getString(R.string.updates_released_prefix, currentVersion.releaseDate),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -4432,7 +4542,7 @@ fun UpdatesSettingsScreen(onBackClick: () -> Unit) {
                             error != null -> {
                                 Icon(
                                     imageVector = Icons.Rounded.Error,
-                                    contentDescription = "Error",
+                                    contentDescription = context.getString(R.string.updates_error),
                                     tint = MaterialTheme.colorScheme.error,
                                     modifier = Modifier.size(40.dp)
                                 )
@@ -4445,7 +4555,7 @@ fun UpdatesSettingsScreen(onBackClick: () -> Unit) {
                                 )
                                 Spacer(modifier = Modifier.height(8.dp))
                                 Text(
-                                    text = error ?: "Unknown error occurred",
+                                    text = error ?: context.getString(R.string.updates_unknown_error),
                                     style = MaterialTheme.typography.bodyMedium,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     textAlign = TextAlign.Center
@@ -4497,7 +4607,7 @@ fun UpdatesSettingsScreen(onBackClick: () -> Unit) {
                                         )
                                         Spacer(modifier = Modifier.width(8.dp))
                                         Text(if (error?.contains("unknown sources", ignoreCase = true) == true ||
-                                                 error?.contains("install from unknown", ignoreCase = true) == true) "Open Settings" else "Retry")
+                                                 error?.contains("install from unknown", ignoreCase = true) == true) context.getString(R.string.updates_open_settings) else context.getString(R.string.updates_retry))
                                     }
                                 }
                             }
@@ -4505,7 +4615,7 @@ fun UpdatesSettingsScreen(onBackClick: () -> Unit) {
                             !updatesEnabled -> {
                                 Icon(
                                     imageVector = Icons.Rounded.UpdateDisabled,
-                                    contentDescription = "Updates disabled",
+                                    contentDescription = context.getString(R.string.updates_disabled),
                                     tint = MaterialTheme.colorScheme.error,
                                     modifier = Modifier.size(40.dp)
                                 )
@@ -4535,7 +4645,7 @@ fun UpdatesSettingsScreen(onBackClick: () -> Unit) {
                                         modifier = Modifier.size(18.dp)
                                     )
                                     Spacer(modifier = Modifier.width(8.dp))
-                                    Text("Enable Updates")
+                                    Text(context.getString(R.string.updates_enable_updates))
                                 }
                             }
 
@@ -4561,7 +4671,7 @@ fun UpdatesSettingsScreen(onBackClick: () -> Unit) {
                                         modifier = Modifier.size(18.dp)
                                     )
                                     Spacer(modifier = Modifier.width(8.dp))
-                                    Text("Check Now")
+                                    Text(context.getString(R.string.updates_check_now))
                                 }
                             }
 
@@ -4581,12 +4691,12 @@ fun UpdatesSettingsScreen(onBackClick: () -> Unit) {
                                 )
                                 Spacer(modifier = Modifier.height(4.dp))
                                 Text(
-                                    text = "Version ${latestVersion?.versionName}",
+                                    text = context.getString(R.string.updates_version_prefix, latestVersion?.versionName ?: ""),
                                     style = MaterialTheme.typography.bodyLarge
                                 )
                                 Spacer(modifier = Modifier.height(4.dp))
                                 Text(
-                                    text = "Released: ${latestVersion?.releaseDate}",
+                                    text = context.getString(R.string.updates_released_prefix, latestVersion?.releaseDate ?: ""),
                                     style = MaterialTheme.typography.bodyMedium,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -4661,7 +4771,7 @@ fun UpdatesSettingsScreen(onBackClick: () -> Unit) {
                                                 modifier = Modifier.size(18.dp)
                                             )
                                             Spacer(modifier = Modifier.width(8.dp))
-                                            Text("Cancel Download")
+                                            Text(context.getString(R.string.updates_cancel_download))
                                         }
                                     }
                                 } else if (downloadedFile != null) {
@@ -4700,7 +4810,7 @@ fun UpdatesSettingsScreen(onBackClick: () -> Unit) {
                                                 modifier = Modifier.size(18.dp)
                                             )
                                             Spacer(modifier = Modifier.width(8.dp))
-                                            Text("Install Update")
+                                            Text(context.getString(R.string.updates_install_update))
                                         }
                                     }
                                 } else {
@@ -4716,7 +4826,7 @@ fun UpdatesSettingsScreen(onBackClick: () -> Unit) {
                                                 modifier = Modifier.size(18.dp)
                                             )
                                             Spacer(modifier = Modifier.width(8.dp))
-                                            Text("Download Update")
+                                            Text(context.getString(R.string.updates_download_update))
                                         }
                                     }
                                 }
@@ -4726,7 +4836,7 @@ fun UpdatesSettingsScreen(onBackClick: () -> Unit) {
                                 if (!autoCheckForUpdates) {
                                     Icon(
                                         imageVector = RhythmIcons.Refresh,
-                                        contentDescription = "Manual check only",
+                                        contentDescription = context.getString(R.string.updates_manual_check),
                                         tint = MaterialTheme.colorScheme.primary,
                                         modifier = Modifier.size(40.dp)
                                     )
@@ -4772,13 +4882,13 @@ fun UpdatesSettingsScreen(onBackClick: () -> Unit) {
                                                 modifier = Modifier.size(18.dp)
                                             )
                                             Spacer(modifier = Modifier.width(8.dp))
-                                            Text("Enable Auto-check")
+                                            Text(context.getString(R.string.updates_enable_auto_check))
                                         }
                                     }
                                 } else {
                                     Icon(
                                         imageVector = RhythmIcons.Check,
-                                        contentDescription = "Up to date",
+                                        contentDescription = context.getString(R.string.updates_up_to_date),
                                         tint = MaterialTheme.colorScheme.primary,
                                         modifier = Modifier.size(40.dp)
                                     )
@@ -4800,7 +4910,7 @@ fun UpdatesSettingsScreen(onBackClick: () -> Unit) {
                                             modifier = Modifier.size(18.dp)
                                         )
                                         Spacer(modifier = Modifier.width(8.dp))
-                                        Text("Check Again")
+                                        Text(context.getString(R.string.updates_check_again))
                                     }
                                 }
                             }
@@ -4960,8 +5070,8 @@ fun UpdatesSettingsScreen(onBackClick: () -> Unit) {
                         TunerSettingRow(
                             item = SettingItem(
                                 Icons.Default.SystemUpdate,
-                                "Enable Updates",
-                                "Allow the app to check for and download updates",
+                                context.getString(R.string.updates_enable),
+                                context.getString(R.string.updates_enable_updates),
                                 toggleState = updatesEnabled,
                                 onToggleChange = { appSettings.setUpdatesEnabled(it) }
                             )
@@ -4980,8 +5090,8 @@ fun UpdatesSettingsScreen(onBackClick: () -> Unit) {
                                 TunerSettingRow(
                                     item = SettingItem(
                                         Icons.Default.Update,
-                                        "Periodic Check",
-                                        "Automatically check for updates from Rhythm's GitHub repo",
+                                        context.getString(R.string.updates_auto_check_disabled),
+                                        context.getString(R.string.updates_disabled_desc),
                                         toggleState = autoCheckForUpdates,
                                         onToggleChange = { appSettings.setAutoCheckForUpdates(it) }
                                     )
@@ -4993,8 +5103,8 @@ fun UpdatesSettingsScreen(onBackClick: () -> Unit) {
                                 TunerSettingRow(
                                     item = SettingItem(
                                         Icons.Default.Notifications,
-                                        "Update Notifications",
-                                        "Get notified when new versions are available",
+                                        context.getString(R.string.updates_settings) + " " + context.getString(R.string.updates_enable),
+                                        context.getString(R.string.updates_disabled_desc),
                                         toggleState = updateNotificationsEnabled,
                                         onToggleChange = { appSettings.setUpdateNotificationsEnabled(it) }
                                     )
@@ -5006,8 +5116,8 @@ fun UpdatesSettingsScreen(onBackClick: () -> Unit) {
                                 TunerSettingRow(
                                     item = SettingItem(
                                         Icons.Default.CloudSync,
-                                        "Smart Polling",
-                                        "Use efficient checks to save GitHub API calls",
+                                        context.getString(R.string.updates_smart_polling),
+                                        context.getString(R.string.updates_smart_polling_desc),
                                         toggleState = useSmartUpdatePolling,
                                         onToggleChange = { appSettings.setUseSmartUpdatePolling(it) }
                                     )
@@ -5019,7 +5129,7 @@ fun UpdatesSettingsScreen(onBackClick: () -> Unit) {
                                 TunerSettingRow(
                                     item = SettingItem(
                                         Icons.Default.Category,
-                                        "Update Channel",
+                                        context.getString(R.string.updates_channel_title),
                                         "${updateChannel.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }} - Tap to change",
                                         onClick = { showChannelDialog = true }
                                     )
@@ -5031,8 +5141,8 @@ fun UpdatesSettingsScreen(onBackClick: () -> Unit) {
                                 TunerSettingRow(
                                     item = SettingItem(
                                         Icons.Default.Schedule,
-                                        "Check Interval",
-                                        "Every $updateCheckIntervalHours hours",
+                                        context.getString(R.string.updates_check_interval_title),
+                                        context.getString(R.string.updates_check_frequency),
                                         onClick = { showIntervalDialog = true }
                                     )
                                 )
@@ -5100,7 +5210,7 @@ fun UpdatesSettingsScreen(onBackClick: () -> Unit) {
                     tint = MaterialTheme.colorScheme.primary
                 )
             },
-            title = { Text("Update Channel") },
+            title = { Text(context.getString(R.string.updates_channel_title)) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(
@@ -5110,8 +5220,8 @@ fun UpdatesSettingsScreen(onBackClick: () -> Unit) {
                     Spacer(modifier = Modifier.height(8.dp))
 
                     val channels = listOf(
-                        "stable" to "Stable - Tested and reliable releases",
-                        "beta" to "Beta - Early access to new features"
+                        "stable" to context.getString(R.string.updates_channel_desc),
+                        "beta" to context.getString(R.string.updates_experimental_coming)
                     )
 
                     channels.forEach { (channel, description) ->
@@ -5168,7 +5278,7 @@ fun UpdatesSettingsScreen(onBackClick: () -> Unit) {
                         modifier = Modifier.size(18.dp)
                     )
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("Close")
+                    Text(context.getString(R.string.ui_close))
                 }
             },
             shape = RoundedCornerShape(24.dp)
@@ -5186,7 +5296,7 @@ fun UpdatesSettingsScreen(onBackClick: () -> Unit) {
                     tint = MaterialTheme.colorScheme.primary
                 )
             },
-            title = { Text("Update Check Interval") },
+            title = { Text(context.getString(R.string.updates_check_interval_title)) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(
@@ -5196,11 +5306,11 @@ fun UpdatesSettingsScreen(onBackClick: () -> Unit) {
                     Spacer(modifier = Modifier.height(8.dp))
 
                     val intervals = listOf(
-                        1 to "Every hour",
-                        6 to "Every 6 hours",
-                        12 to "Every 12 hours",
-                        24 to "Once a day",
-                        168 to "Once a week"
+                        1 to context.getString(R.string.updates_check_frequency),
+                        6 to "6h",
+                        12 to "12h",
+                        24 to "24h",
+                        168 to "168h"
                     )
 
                     intervals.forEach { (hours, label) ->
@@ -5278,7 +5388,7 @@ fun ExperimentalFeaturesScreen(onBackClick: () -> Unit) {
     var showAppModeDialog by remember { mutableStateOf(false) }
 
     CollapsibleHeaderScreen(
-        title = "Experimental Features",
+        title = context.getString(R.string.settings_experimental),
         showBackButton = true,
         onBackClick = onBackClick
     ) { modifier ->
@@ -5286,24 +5396,24 @@ fun ExperimentalFeaturesScreen(onBackClick: () -> Unit) {
             // Music Source settings group
             add(
                 SettingGroup(
-                    title = "Music Source",
+                    title = context.getString(R.string.exp_music_source),
                     items = listOf(
                         SettingItem(
                             Icons.Default.Storage,
-                            "Music Mode",
-                            if (appMode == "LOCAL") "Local files from device" else "Streaming services",
+                            context.getString(R.string.exp_music_mode),
+                            if (appMode == "LOCAL") context.getString(R.string.exp_local_files_desc) else context.getString(R.string.exp_streaming_desc),
                             onClick = { showAppModeDialog = true }
                         ),
                         SettingItem(
                             Icons.Default.Public,
-                            "Allow Cellular Streaming",
-                            "Stream music over mobile data",
+                            context.getString(R.string.exp_cellular_streaming),
+                            context.getString(R.string.exp_cellular_streaming_desc),
                             toggleState = allowCellularStreaming,
                             onToggleChange = { appSettings.setAllowCellularStreaming(it) }
                         ).takeIf { appMode == "STREAMING" } ?: SettingItem(
                             Icons.Default.Info,
-                            "Note",
-                            "Streaming features coming soon"
+                            context.getString(R.string.exp_note),
+                            context.getString(R.string.exp_streaming_coming_soon)
                         )
                     )
                 )
@@ -5312,32 +5422,32 @@ fun ExperimentalFeaturesScreen(onBackClick: () -> Unit) {
             // Developer/Debugging features group
             add(
                 SettingGroup(
-                    title = "Developer & Debugging",
+                    title = context.getString(R.string.exp_developer_debugging),
                     items = listOf(
                         SettingItem(
                             Icons.Default.Code,
-                            "Codec Monitoring",
-                            "Log audio codec and format info for debugging. View in Logcat with tag 'CodecMonitor'",
+                            context.getString(R.string.exp_codec_monitoring),
+                            context.getString(R.string.exp_codec_monitoring_desc),
                             toggleState = appSettings.codecMonitoringEnabled.collectAsState().value,
                             onToggleChange = { appSettings.setCodecMonitoringEnabled(it) }
                         ),
                         SettingItem(
                             Icons.Default.Headphones,
-                            "Audio Device Logging",
-                            "Log audio device changes (Bluetooth, headphones, etc.)",
+                            context.getString(R.string.exp_audio_device_logging),
+                            context.getString(R.string.exp_audio_device_logging_desc),
                             toggleState = appSettings.audioDeviceLoggingEnabled.collectAsState().value,
                             onToggleChange = { appSettings.setAudioDeviceLoggingEnabled(it) }
                         ),
                         SettingItem(
                             Icons.Default.RestartAlt,
-                            "Launch Onboarding",
-                            "Reset and relaunch the onboarding experience",
+                            context.getString(R.string.exp_launch_onboarding),
+                            context.getString(R.string.exp_launch_onboarding_desc),
                             onClick = { appSettings.setOnboardingCompleted(false) }
                         ),
                         SettingItem(
                             Icons.Default.BugReport,
-                            "Test Crash",
-                            "Forcibly crash the app to test crash handling and reporting",
+                            context.getString(R.string.exp_test_crash),
+                            context.getString(R.string.exp_test_crash_desc),
                             onClick = { chromahub.rhythm.app.util.CrashReporter.testCrash() }
                         )
                     )
@@ -5442,7 +5552,7 @@ fun ExperimentalFeaturesScreen(onBackClick: () -> Unit) {
                 ) {
                     Column {
                         Text(
-                            text = "Music Mode",
+                            text = context.getString(R.string.exp_music_mode),
                             style = MaterialTheme.typography.displayMedium,
                             fontWeight = FontWeight.Medium,
                             color = MaterialTheme.colorScheme.onSurface
@@ -5458,7 +5568,7 @@ fun ExperimentalFeaturesScreen(onBackClick: () -> Unit) {
                             Text(
                                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
                                 style = MaterialTheme.typography.labelLarge,
-                                text = "Choose your music source",
+                                text = context.getString(R.string.exp_choose_music_source),
                                 overflow = TextOverflow.Ellipsis,
                                 maxLines = 1,
                                 color = MaterialTheme.colorScheme.onSurface
@@ -5505,7 +5615,7 @@ fun ExperimentalFeaturesScreen(onBackClick: () -> Unit) {
                         
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = "Local Files",
+                                text = context.getString(R.string.exp_local_files),
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Medium,
                                 color = if (appMode == "LOCAL") 
@@ -5514,7 +5624,7 @@ fun ExperimentalFeaturesScreen(onBackClick: () -> Unit) {
                                     MaterialTheme.colorScheme.onSurface
                             )
                             Text(
-                                text = "Play music from your device storage",
+                                text = context.getString(R.string.exp_local_files_desc),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = if (appMode == "LOCAL") 
                                     MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
@@ -5572,7 +5682,7 @@ fun ExperimentalFeaturesScreen(onBackClick: () -> Unit) {
                         
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = "Streaming Services",
+                                text = context.getString(R.string.exp_streaming_services),
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Medium,
                                 color = if (appMode == "STREAMING") 
@@ -5581,7 +5691,7 @@ fun ExperimentalFeaturesScreen(onBackClick: () -> Unit) {
                                     MaterialTheme.colorScheme.onSurface
                             )
                             Text(
-                                text = "Stream from Spotify, Apple Music, etc. (Coming soon)",
+                                text = context.getString(R.string.exp_streaming_desc),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = if (appMode == "STREAMING") 
                                     MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
@@ -6101,6 +6211,108 @@ fun LyricsSourceDialog(
     }
 }
 
+@Composable
+fun LibrarySettingsScreen(onBackClick: () -> Unit) {
+    val context = LocalContext.current
+    val appSettings = AppSettings.getInstance(context)
+
+    val enableRatingSystem by appSettings.enableRatingSystem.collectAsState()
+    val groupByAlbumArtist by appSettings.groupByAlbumArtist.collectAsState()
+    val ignoreMediaStoreCovers by appSettings.ignoreMediaStoreCovers.collectAsState()
+    val losslessArtwork by appSettings.losslessArtwork.collectAsState()
+    val albumBottomSheetGradientBlur by appSettings.albumBottomSheetGradientBlur.collectAsState()
+
+    CollapsibleHeaderScreen(
+        title = context.getString(R.string.settings_library_settings),
+        showBackButton = true,
+        onBackClick = onBackClick
+    ) { modifier ->
+        val settingGroups = listOf(
+            SettingGroup(
+                title = context.getString(R.string.settings_section_library_content),
+                items = listOf(
+                    SettingItem(
+                        Icons.Default.Star,
+                        context.getString(R.string.settings_song_ratings),
+                        context.getString(R.string.settings_song_ratings_desc),
+                        toggleState = enableRatingSystem,
+                        onToggleChange = { appSettings.setEnableRatingSystem(it) }
+                    ),
+                    SettingItem(
+                        Icons.Default.Person,
+                        context.getString(R.string.settings_group_by_album_artist),
+                        context.getString(R.string.settings_group_by_album_artist_desc),
+                        toggleState = groupByAlbumArtist,
+                        onToggleChange = { appSettings.setGroupByAlbumArtist(it) }
+                    )
+                )
+            ),
+            SettingGroup(
+                title = context.getString(R.string.settings_section_appearance),
+                items = listOf(
+                    SettingItem(
+                        RhythmIcons.Album,
+                        context.getString(R.string.settings_ignore_mediastore_covers),
+                        context.getString(R.string.settings_ignore_mediastore_covers_desc),
+                        toggleState = ignoreMediaStoreCovers,
+                        onToggleChange = { appSettings.setIgnoreMediaStoreCovers(it) }
+                    ),
+                    SettingItem(
+                        Icons.Default.MusicNote,
+                        context.getString(R.string.settings_lossless_artwork),
+                        context.getString(R.string.settings_lossless_artwork_desc),
+                        toggleState = losslessArtwork,
+                        onToggleChange = { appSettings.setLosslessArtwork(it) }
+                    ),
+                    SettingItem(
+                        Icons.Default.LensBlur,
+                        context.getString(R.string.settings_album_bottom_sheet_gradient_blur),
+                        context.getString(R.string.settings_album_bottom_sheet_gradient_blur_desc),
+                        toggleState = albumBottomSheetGradientBlur,
+                        onToggleChange = { appSettings.setAlbumBottomSheetGradientBlur(it) }
+                    )
+                )
+            )
+        )
+
+        LazyColumn(
+            modifier = modifier
+                .fillMaxSize()
+                .background(MaterialTheme.colorScheme.background)
+                .padding(horizontal = 24.dp)
+        ) {
+            items(settingGroups, key = { "libsettings_${it.title}" }) { group ->
+                Spacer(modifier = Modifier.height(24.dp))
+                Text(
+                    text = group.title,
+                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(start = 16.dp, bottom = 8.dp)
+                )
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(18.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+                ) {
+                    Column {
+                        group.items.forEachIndexed { index, item ->
+                            TunerSettingRow(item = item)
+                            if (index < group.items.lastIndex) {
+                                HorizontalDivider(
+                                    modifier = Modifier.padding(horizontal = 20.dp),
+                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+            item { Spacer(modifier = Modifier.height(100.dp)) }
+        }
+    }
+}
+
 // Cache Management Screen (merged from CacheManagementBottomSheet)
 @Composable
 fun CacheManagementSettingsScreen(onBackClick: () -> Unit) {
@@ -6113,6 +6325,7 @@ fun CacheManagementSettingsScreen(onBackClick: () -> Unit) {
     // Collect states
     val maxCacheSize by appSettings.maxCacheSize.collectAsState()
     val clearCacheOnExit by appSettings.clearCacheOnExit.collectAsState()
+    val storageMode by appSettings.storageMode.collectAsState()
 
     // Local states
     var currentCacheSize by remember { mutableStateOf(0L) }
@@ -6121,6 +6334,10 @@ fun CacheManagementSettingsScreen(onBackClick: () -> Unit) {
     var showCacheSizeDialog by remember { mutableStateOf(false) }
     var showClearCacheSuccess by remember { mutableStateOf(false) }
     var cacheDetails by remember { mutableStateOf<Map<String, Long>>(emptyMap()) }
+    var isRebuildingRoom by remember { mutableStateOf(false) }
+    var roomSongCount by remember { mutableStateOf(-1) }
+    var jsonCacheSize by remember { mutableStateOf(-1L) }
+    var jsonSongCount by remember { mutableStateOf(-1) }
 
     // Calculate cache size when the screen opens
     LaunchedEffect(Unit) {
@@ -6132,6 +6349,20 @@ fun CacheManagementSettingsScreen(onBackClick: () -> Unit) {
             Log.e("CacheManagement", "Error calculating cache size", e)
         } finally {
             isCalculatingSize = false
+        }
+    }
+
+    // Calculate storage backend stats
+    LaunchedEffect(storageMode) {
+        try {
+            val repo = musicViewModel.getMusicRepository()
+            jsonSongCount = repo.getJsonSongCount()
+            jsonCacheSize = repo.getJsonFileSize()
+            roomSongCount = try {
+                repo.getRoomSongCount()
+            } catch (_: Exception) { -1 }
+        } catch (e: Exception) {
+            Log.e("CacheManagement", "Error calculating storage stats", e)
         }
     }
 
@@ -6148,7 +6379,7 @@ fun CacheManagementSettingsScreen(onBackClick: () -> Unit) {
     }
 
     CollapsibleHeaderScreen(
-        title = "Cache",
+        title = context.getString(R.string.settings_cache),
         showBackButton = true,
         onBackClick = onBackClick
     ) { modifier ->
@@ -6273,7 +6504,7 @@ fun CacheManagementSettingsScreen(onBackClick: () -> Unit) {
             item {
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = "Cache Settings",
+                    text = context.getString(R.string.settings_cache_settings),
                     style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
                     color = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.padding(start = 16.dp, bottom = 8.dp)
@@ -6298,7 +6529,7 @@ fun CacheManagementSettingsScreen(onBackClick: () -> Unit) {
                         SettingRow(
                             icon = Icons.Filled.AutoDelete,
                             title = context.getString(R.string.cache_clear_on_exit),
-                            description = "Automatically clear cache when exiting app",
+                            description = context.getString(R.string.settings_cache_clear_on_exit_desc),
                             toggleState = clearCacheOnExit,
                             onToggleChange = { appSettings.setClearCacheOnExit(it) }
                         )
@@ -6310,7 +6541,7 @@ fun CacheManagementSettingsScreen(onBackClick: () -> Unit) {
             item {
                 Spacer(modifier = Modifier.height(24.dp))
                 Text(
-                    text = "Cache Actions",
+                    text = context.getString(R.string.settings_cache_actions),
                     style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
                     color = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.padding(start = 16.dp, bottom = 8.dp)
@@ -6324,8 +6555,8 @@ fun CacheManagementSettingsScreen(onBackClick: () -> Unit) {
                     Column {
                         SettingRow(
                             icon = Icons.Filled.MusicNote,
-                            title = "Clear Lyrics Cache",
-                            description = "Remove all cached lyrics data",
+                            title = context.getString(R.string.settings_clear_lyrics_cache),
+                            description = context.getString(R.string.settings_clear_lyrics_cache_desc),
                             onClick = {
                                 scope.launch {
                                     try {
@@ -6333,10 +6564,10 @@ fun CacheManagementSettingsScreen(onBackClick: () -> Unit) {
                                         musicViewModel.clearLyricsCacheAndRefetch()
                                         currentCacheSize = chromahub.rhythm.app.util.CacheManager.getCacheSize(context)
                                         cacheDetails = chromahub.rhythm.app.util.CacheManager.getDetailedCacheSize(context)
-                                        Toast.makeText(context, "Lyrics cache cleared", Toast.LENGTH_SHORT).show()
+                                        Toast.makeText(context, context.getString(R.string.settings_lyrics_cache_cleared), Toast.LENGTH_SHORT).show()
                                     } catch (e: Exception) {
                                         Log.e("CacheManagement", "Error clearing lyrics cache", e)
-                                        Toast.makeText(context, "Failed to clear lyrics cache", Toast.LENGTH_SHORT).show()
+                                        Toast.makeText(context, context.getString(R.string.settings_lyrics_cache_clear_failed), Toast.LENGTH_SHORT).show()
                                     } finally {
                                         isClearingCache = false
                                     }
@@ -6356,13 +6587,14 @@ fun CacheManagementSettingsScreen(onBackClick: () -> Unit) {
                                             isClearingCache = true
                                             chromahub.rhythm.app.util.CacheManager.clearAllCache(context, null)
                                             musicViewModel.getMusicRepository().clearInMemoryCaches()
+                                            musicViewModel.getMusicRepository().clearSongCacheData()
                                             currentCacheSize = chromahub.rhythm.app.util.CacheManager.getCacheSize(context)
                                             cacheDetails = chromahub.rhythm.app.util.CacheManager.getDetailedCacheSize(context)
                                             showClearCacheSuccess = true
-                                            Toast.makeText(context, "All cache cleared", Toast.LENGTH_SHORT).show()
+                                            Toast.makeText(context, context.getString(R.string.settings_all_cache_cleared), Toast.LENGTH_SHORT).show()
                                         } catch (e: Exception) {
                                             Log.e("CacheManagement", "Error clearing cache", e)
-                                            Toast.makeText(context, "Failed to clear cache", Toast.LENGTH_SHORT).show()
+                                            Toast.makeText(context, context.getString(R.string.settings_cache_clear_failed), Toast.LENGTH_SHORT).show()
                                         } finally {
                                             isClearingCache = false
                                         }
@@ -6373,7 +6605,7 @@ fun CacheManagementSettingsScreen(onBackClick: () -> Unit) {
                         ) {
                             Icon(
                                 imageVector = Icons.Filled.DeleteSweep,
-                                contentDescription = "Clear All Cache",
+                                contentDescription = context.getString(R.string.settings_clear_all_cache),
                                 modifier = Modifier
                                     .size(40.dp)
                                     .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(50))
@@ -6383,12 +6615,12 @@ fun CacheManagementSettingsScreen(onBackClick: () -> Unit) {
                             Spacer(modifier = Modifier.width(16.dp))
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
-                                    text = "Clear All Cache",
+                                    text = context.getString(R.string.settings_clear_all_cache),
                                     style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium),
                                     color = MaterialTheme.colorScheme.error
                                 )
                                 Text(
-                                    text = "Remove all cached data",
+                                    text = context.getString(R.string.settings_clear_all_cache_desc),
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -6412,6 +6644,161 @@ fun CacheManagementSettingsScreen(onBackClick: () -> Unit) {
                 }
 
                 Spacer(modifier = Modifier.height(12.dp))
+            }
+
+            // Library Storage section
+            item {
+                Spacer(modifier = Modifier.height(24.dp))
+                Text(
+                    text = context.getString(R.string.settings_cache_backend),
+                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(start = 16.dp, bottom = 8.dp)
+                )
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+                    shape = RoundedCornerShape(18.dp),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column {
+                        // Storage mode selection with ExpressiveButtonGroup
+                        Column(modifier = Modifier.padding(20.dp)) {
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Surface(
+                                    modifier = Modifier.size(40.dp),
+                                    shape = RoundedCornerShape(34.dp),
+                                    color = MaterialTheme.colorScheme.surfaceContainerHighest,
+                                    tonalElevation = 0.dp
+                                ) {
+                                    Box(
+                                        contentAlignment = Alignment.Center,
+                                        modifier = Modifier.fillMaxSize()
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Filled.Storage,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(24.dp),
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
+                                Column {
+                                    Text(
+                                        text = context.getString(R.string.settings_cache_backend),
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.Medium,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                    Text(
+                                        text = context.getString(R.string.settings_cache_backend_desc),
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(16.dp))
+
+                            ExpressiveButtonGroup(
+                                items = listOf(
+                                    context.getString(R.string.settings_storage_json),
+                                    context.getString(R.string.settings_storage_room)
+                                ),
+                                selectedIndex = if (storageMode == "json") 0 else 1,
+                                onItemClick = { index ->
+                                    HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
+                                    val newMode = if (index == 0) "json" else "room"
+                                    if (storageMode != newMode) {
+                                        appSettings.setStorageMode(newMode)
+                                        scope.launch {
+                                            musicViewModel.getMusicRepository().migrateStorageMode(newMode)
+                                            jsonSongCount = musicViewModel.getMusicRepository().getJsonSongCount()
+                                            jsonCacheSize = musicViewModel.getMusicRepository().getJsonFileSize()
+                                            roomSongCount = try {
+                                                musicViewModel.getMusicRepository().getRoomSongCount()
+                                            } catch (_: Exception) { -1 }
+                                        }
+                                    }
+                                },
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+
+                        HorizontalDivider(
+                            modifier = Modifier.padding(horizontal = 20.dp),
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f)
+                        )
+
+                        // JSON stats
+                        SettingRow(
+                            icon = Icons.Filled.Description,
+                            title = context.getString(R.string.settings_storage_json_stats),
+                            description = if (jsonSongCount >= 0)
+                                context.getString(R.string.settings_storage_song_count, jsonSongCount) + " · " +
+                                context.getString(R.string.settings_storage_file_size,
+                                    chromahub.rhythm.app.util.CacheManager.formatBytes(jsonCacheSize))
+                            else context.getString(R.string.settings_storage_not_available)
+                        )
+
+                        HorizontalDivider(
+                            modifier = Modifier.padding(horizontal = 20.dp),
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f)
+                        )
+
+                        // Room stats
+                        SettingRow(
+                            icon = Icons.Filled.TableChart,
+                            title = context.getString(R.string.settings_storage_room_stats),
+                            description = if (roomSongCount >= 0)
+                                context.getString(R.string.settings_storage_song_count, roomSongCount)
+                            else context.getString(R.string.settings_storage_not_available)
+                        )
+
+                        HorizontalDivider(
+                            modifier = Modifier.padding(horizontal = 20.dp),
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f)
+                        )
+
+                        // Rebuild Room Database
+                        SettingRow(
+                            icon = Icons.Filled.Sync,
+                            title = context.getString(R.string.settings_storage_rebuild_room),
+                            description = context.getString(R.string.settings_storage_rebuild_room_desc),
+                            onClick = {
+                                if (!isRebuildingRoom) {
+                                    scope.launch {
+                                        isRebuildingRoom = true
+                                        try {
+                                            musicViewModel.getMusicRepository().clearSongCacheData()
+                                            musicViewModel.refreshLibrary()
+                                            roomSongCount = musicViewModel.getMusicRepository().getRoomSongCount()
+                                            Toast.makeText(context, context.getString(R.string.settings_storage_rebuild_success), Toast.LENGTH_SHORT).show()
+                                        } catch (e: Exception) {
+                                            Log.e("CacheManagement", "Error rebuilding Room DB", e)
+                                            Toast.makeText(context, context.getString(R.string.settings_storage_rebuild_failed), Toast.LENGTH_SHORT).show()
+                                        } finally {
+                                            isRebuildingRoom = false
+                                        }
+                                    }
+                                }
+                            }
+                        )
+                    }
+                }
+
+                if (isRebuildingRoom) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    LinearProgressIndicator(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp)
+                            .clip(RoundedCornerShape(4.dp))
+                    )
+                }
             }
 
             // Information section
@@ -6446,10 +6833,10 @@ fun CacheManagementSettingsScreen(onBackClick: () -> Unit) {
                         }
 
                         listOf(
-                            "Cache includes album art, temporary files, and app data",
-                            "Clearing cache may temporarily slow down the app",
-                            "Cached data will rebuild automatically as needed",
-                            "Auto-clearing helps maintain optimal performance"
+                            context.getString(R.string.settings_cache_info_1),
+                            context.getString(R.string.settings_cache_info_2),
+                            context.getString(R.string.settings_cache_info_3),
+                            context.getString(R.string.settings_cache_info_4)
                         ).forEach { info ->
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
@@ -6662,7 +7049,7 @@ fun CacheSizeDialog(
                     modifier = Modifier.size(18.dp)
                 )
                 Spacer(modifier = Modifier.width(8.dp))
-                Text("Save")
+                Text(context.getString(R.string.ui_save))
             }
         },
         dismissButton = {
@@ -6673,7 +7060,7 @@ fun CacheSizeDialog(
                     modifier = Modifier.size(18.dp)
                 )
                 Spacer(modifier = Modifier.width(8.dp))
-                Text("Cancel")
+                Text(context.getString(R.string.ui_cancel))
             }
         },
         shape = RoundedCornerShape(24.dp)
@@ -6843,7 +7230,7 @@ fun BackupRestoreSettingsScreen(onBackClick: () -> Unit) {
     }
 
     CollapsibleHeaderScreen(
-        title = "Backup & Restore",
+        title = context.getString(R.string.settings_backup_restore),
         showBackButton = true,
         onBackClick = onBackClick
     ) { modifier ->
@@ -6937,7 +7324,7 @@ fun BackupRestoreSettingsScreen(onBackClick: () -> Unit) {
                             )
                             Spacer(modifier = Modifier.height(8.dp))
                             Text(
-                                text = if (autoBackupEnabled) "Enabled" else "Manual",
+                                text = if (autoBackupEnabled) context.getString(R.string.settings_backup_enabled) else context.getString(R.string.settings_backup_manual),
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold,
                                 color = if (autoBackupEnabled)
@@ -6991,12 +7378,12 @@ fun BackupRestoreSettingsScreen(onBackClick: () -> Unit) {
 
             val settingGroups = listOf(
                 SettingGroup(
-                    title = "Settings",
+                    title = context.getString(R.string.settings_backup_settings),
                     items = listOf(
                         SettingItem(
                             Icons.Default.Autorenew,
-                            "Auto-backup",
-                            "Automatically backup settings weekly",
+                            context.getString(R.string.settings_auto_backup),
+                            context.getString(R.string.settings_auto_backup_desc),
                             toggleState = autoBackupEnabled,
                             onToggleChange = {
                                 HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
@@ -7007,12 +7394,12 @@ fun BackupRestoreSettingsScreen(onBackClick: () -> Unit) {
                     )
                 ),
                 SettingGroup(
-                    title = "Backup Actions",
+                    title = context.getString(R.string.settings_backup_actions),
                     items = listOf(
                         SettingItem(
                             Icons.Default.Save,
-                            "Create Backup to File",
-                            "Export complete backup to a JSON file",
+                            context.getString(R.string.settings_create_backup),
+                            context.getString(R.string.settings_create_backup_desc),
                             onClick = {
                                 if (!isCreatingBackup) {
                                     HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
@@ -7028,12 +7415,12 @@ fun BackupRestoreSettingsScreen(onBackClick: () -> Unit) {
                     )
                 ),
                 SettingGroup(
-                    title = "Restore Actions",
+                    title = context.getString(R.string.settings_restore_actions),
                     items = listOf(
                         SettingItem(
                             Icons.Default.ContentCopy,
-                            "Restore from Clipboard",
-                            "Import backup data from clipboard",
+                            context.getString(R.string.settings_restore_clipboard),
+                            context.getString(R.string.settings_restore_clipboard_desc),
                             onClick = {
                                 if (!isRestoringFromClipboard && !isRestoringFromFile && !isCreatingBackup) {
                                     HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
@@ -7043,8 +7430,8 @@ fun BackupRestoreSettingsScreen(onBackClick: () -> Unit) {
                         ),
                         SettingItem(
                             Icons.Default.FolderOpen,
-                            "Restore from File",
-                            "Import backup from a JSON file",
+                            context.getString(R.string.settings_restore_file),
+                            context.getString(R.string.settings_restore_file_desc),
                             onClick = {
                                 if (!isRestoringFromFile && !isRestoringFromClipboard && !isCreatingBackup) {
                                     HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
@@ -7151,7 +7538,7 @@ fun BackupRestoreSettingsScreen(onBackClick: () -> Unit) {
                     tint = MaterialTheme.colorScheme.primary
                 )
             },
-            title = { Text("Backup Created Successfully") },
+            title = { Text(context.getString(R.string.settings_backup_created)) },
             text = {
                 Text("Your complete Rhythm backup has been created including:\n\n" +
                      "• All app settings and preferences\n" +
@@ -7174,7 +7561,7 @@ fun BackupRestoreSettingsScreen(onBackClick: () -> Unit) {
                         modifier = Modifier.size(18.dp)
                     )
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("OK")
+                    Text(context.getString(R.string.ui_ok))
                 }
             },
             shape = RoundedCornerShape(24.dp)
@@ -7191,7 +7578,7 @@ fun BackupRestoreSettingsScreen(onBackClick: () -> Unit) {
                     tint = MaterialTheme.colorScheme.primary
                 )
             },
-            title = { Text("Restore Completed Successfully") },
+            title = { Text(context.getString(R.string.settings_restore_completed)) },
             text = {
                 Text("Your Rhythm data has been restored successfully including:\n\n" +
                      "• All app settings and preferences\n" +
@@ -7220,7 +7607,7 @@ fun BackupRestoreSettingsScreen(onBackClick: () -> Unit) {
                         modifier = Modifier.size(18.dp)
                     )
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("Restart Now")
+                    Text(context.getString(R.string.settings_restart_now))
                 }
             },
             shape = RoundedCornerShape(24.dp)
@@ -7237,7 +7624,7 @@ fun BackupRestoreSettingsScreen(onBackClick: () -> Unit) {
                     tint = MaterialTheme.colorScheme.error
                 )
             },
-            title = { Text("Error") },
+            title = { Text(context.getString(R.string.ui_error)) },
             text = { Text(errorMessage) },
             confirmButton = {
                 Button(onClick = {
@@ -7283,7 +7670,7 @@ fun LibraryTabOrderSettingsScreen(onBackClick: () -> Unit) {
     }
 
     CollapsibleHeaderScreen(
-        title = "Library Tab Order",
+        title = context.getString(R.string.settings_tab_order),
         showBackButton = true,
         onBackClick = onBackClick
     ) { modifier ->
@@ -7391,7 +7778,7 @@ fun LibraryTabOrderSettingsScreen(onBackClick: () -> Unit) {
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.ArrowUpward,
-                                    contentDescription = "Move up",
+                                    contentDescription = context.getString(R.string.settings_move_up),
                                     modifier = Modifier.size(20.dp)
                                 )
                             }
@@ -7418,7 +7805,7 @@ fun LibraryTabOrderSettingsScreen(onBackClick: () -> Unit) {
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.ArrowDownward,
-                                    contentDescription = "Move down",
+                                    contentDescription = context.getString(R.string.settings_move_down),
                                     modifier = Modifier.size(20.dp)
                                 )
                             }
@@ -7441,7 +7828,7 @@ fun LibraryTabOrderSettingsScreen(onBackClick: () -> Unit) {
                             HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
                             appSettings.resetLibraryTabOrder()
                             reorderableList = listOf("SONGS", "PLAYLISTS", "ALBUMS", "ARTISTS", "EXPLORER")
-                            Toast.makeText(context, "Tab order reset to default", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, context.getString(R.string.settings_tab_order_reset), Toast.LENGTH_SHORT).show()
                         },
                         modifier = Modifier.weight(1f),
                         shape = RoundedCornerShape(12.dp)
@@ -7452,7 +7839,7 @@ fun LibraryTabOrderSettingsScreen(onBackClick: () -> Unit) {
                             modifier = Modifier.size(20.dp)
                         )
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("Reset")
+                        Text(context.getString(R.string.ui_reset))
                     }
 
                     // Save button
@@ -7460,7 +7847,7 @@ fun LibraryTabOrderSettingsScreen(onBackClick: () -> Unit) {
                         onClick = {
                             HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
                             appSettings.setLibraryTabOrder(reorderableList)
-                            Toast.makeText(context, "Tab order saved", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, context.getString(R.string.settings_tab_order_saved), Toast.LENGTH_SHORT).show()
                         },
                         modifier = Modifier.weight(1f),
                         shape = RoundedCornerShape(12.dp)
@@ -7495,7 +7882,7 @@ fun GesturesSettingsScreen(onBackClick: () -> Unit) {
     val gestureArtworkDoubleTap by appSettings.gestureArtworkDoubleTap.collectAsState()
 
     CollapsibleHeaderScreen(
-        title = "Gestures",
+        title = context.getString(R.string.settings_gestures),
         showBackButton = true,
         onBackClick = onBackClick
     ) { modifier ->
@@ -7508,7 +7895,7 @@ fun GesturesSettingsScreen(onBackClick: () -> Unit) {
             item(key = "miniplayer_gestures_header") {
                 Spacer(modifier = Modifier.height(24.dp))
                 Text(
-                    text = "Mini Player",
+                    text = context.getString(R.string.settings_miniplayer),
                     style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
                     color = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.padding(start = 16.dp, bottom = 8.dp)
@@ -7543,7 +7930,7 @@ fun GesturesSettingsScreen(onBackClick: () -> Unit) {
             item(key = "player_gestures_header") {
                 Spacer(modifier = Modifier.height(24.dp))
                 Text(
-                    text = "Full Player",
+                    text = context.getString(R.string.settings_full_player),
                     style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
                     color = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.padding(start = 16.dp, bottom = 8.dp)
@@ -7630,7 +8017,7 @@ fun GesturesSettingsScreen(onBackClick: () -> Unit) {
                             )
                             Spacer(modifier = Modifier.width(12.dp))
                             Text(
-                                text = "Quick Tips",
+                                text = context.getString(R.string.settings_quick_tips),
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onPrimaryContainer
@@ -7640,19 +8027,19 @@ fun GesturesSettingsScreen(onBackClick: () -> Unit) {
 
                         GestureTipItem(
                             icon = Icons.Default.SwipeVertical,
-                            text = "Swipe up on mini player to open full player"
+                            text = context.getString(R.string.settings_swipe_up_open)
                         )
                         GestureTipItem(
                             icon = Icons.Default.SwipeDown,
-                            text = "Swipe down on mini player or full player to dismiss"
+                            text = context.getString(R.string.settings_swipe_down_dismiss_tip)
                         )
                         GestureTipItem(
                             icon = Icons.Default.TouchApp,
-                            text = "Double tap artwork for quick play/pause"
+                            text = context.getString(R.string.settings_double_tap_artwork_tip)
                         )
                         GestureTipItem(
                             icon = Icons.Default.Speed,
-                            text = "Disable unused gestures for faster response"
+                            text = context.getString(R.string.settings_disable_unused_gestures)
                         )
                     }
                 }
@@ -7710,7 +8097,7 @@ fun MiniPlayerCustomizationSettingsScreen(onBackClick: () -> Unit) {
     var showMiniPlayerCornerRadiusSheet by remember { mutableStateOf(false) }
 
     CollapsibleHeaderScreen(
-        title = "MiniPlayer",
+        title = context.getString(R.string.settings_miniplayer),
         showBackButton = true,
         onBackClick = onBackClick
     ) { modifier ->
@@ -7724,7 +8111,7 @@ fun MiniPlayerCustomizationSettingsScreen(onBackClick: () -> Unit) {
             item {
                 Spacer(modifier = Modifier.height(24.dp))
                 Text(
-                    text = "Progress Display",
+                    text = context.getString(R.string.settings_progress_display),
                     style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
                     color = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.padding(start = 16.dp, bottom = 8.dp)
@@ -7769,7 +8156,7 @@ fun MiniPlayerCustomizationSettingsScreen(onBackClick: () -> Unit) {
                                 }
                             } else {
                                 Text(
-                                    text = "Progress hidden",
+                                    text = context.getString(R.string.settings_progress_hidden),
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier.fillMaxWidth(),
@@ -7783,8 +8170,8 @@ fun MiniPlayerCustomizationSettingsScreen(onBackClick: () -> Unit) {
                         )
                         SettingRow(
                             icon = Icons.Default.Visibility,
-                            title = "Show Progress",
-                            description = "Display progress indicator",
+                            title = context.getString(R.string.settings_show_progress),
+                            description = context.getString(R.string.settings_show_progress_desc),
                             toggleState = miniPlayerShowProgress,
                             onToggleChange = { appSettings.setMiniPlayerShowProgress(it) }
                         )
@@ -7828,13 +8215,13 @@ fun MiniPlayerCustomizationSettingsScreen(onBackClick: () -> Unit) {
                                         }
                                         Column {
                                             Text(
-                                                text = "Progress Mode",
+                                                text = context.getString(R.string.settings_progress_mode),
                                                 style = MaterialTheme.typography.titleMedium,
                                                 fontWeight = FontWeight.Medium,
                                                 color = MaterialTheme.colorScheme.onSurface
                                             )
                                             Text(
-                                                text = "Choose progress indicator style",
+                                                text = context.getString(R.string.settings_choose_progress_style),
                                                 style = MaterialTheme.typography.bodyMedium,
                                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                                             )
@@ -7883,7 +8270,7 @@ fun MiniPlayerCustomizationSettingsScreen(onBackClick: () -> Unit) {
             item {
                 Spacer(modifier = Modifier.height(24.dp))
                 Text(
-                    text = "Artwork",
+                    text = context.getString(R.string.settings_artwork),
                     style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
                     color = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.padding(start = 16.dp, bottom = 8.dp)
@@ -7897,8 +8284,8 @@ fun MiniPlayerCustomizationSettingsScreen(onBackClick: () -> Unit) {
                     Column {
                         SettingRow(
                             icon = Icons.Default.Album,
-                            title = "Show Artwork",
-                            description = "Display album artwork",
+                            title = context.getString(R.string.settings_show_artwork),
+                            description = context.getString(R.string.settings_show_artwork_desc),
                             toggleState = miniPlayerShowArtwork,
                             onToggleChange = { appSettings.setMiniPlayerShowArtwork(it) }
                         )
@@ -7930,7 +8317,7 @@ fun MiniPlayerCustomizationSettingsScreen(onBackClick: () -> Unit) {
             item {
                 Spacer(modifier = Modifier.height(24.dp))
                 Text(
-                    text = "Display Options",
+                    text = context.getString(R.string.settings_display_options),
                     style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
                     color = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.padding(start = 16.dp, bottom = 8.dp)
@@ -7944,8 +8331,8 @@ fun MiniPlayerCustomizationSettingsScreen(onBackClick: () -> Unit) {
                     Column {
                         SettingRow(
                             icon = Icons.Default.Timer,
-                            title = "Show Time",
-                            description = "Display playback time",
+                            title = context.getString(R.string.settings_show_time),
+                            description = context.getString(R.string.settings_show_time_desc),
                             toggleState = miniPlayerShowTime,
                             onToggleChange = { appSettings.setMiniPlayerShowTime(it) }
                         )
@@ -7955,8 +8342,8 @@ fun MiniPlayerCustomizationSettingsScreen(onBackClick: () -> Unit) {
                         )
                         SettingRow(
                             icon = Icons.Default.Tablet,
-                            title = "Tablet Layout on Phone",
-                            description = "Use tablet-style miniplayer on phones",
+                            title = context.getString(R.string.settings_tablet_layout),
+                            description = context.getString(R.string.settings_tablet_layout_desc),
                             toggleState = miniPlayerAlwaysShowTablet,
                             onToggleChange = { appSettings.setMiniPlayerAlwaysShowTablet(it) }
                         )
@@ -7997,7 +8384,7 @@ fun MiniPlayerCustomizationSettingsScreen(onBackClick: () -> Unit) {
                         }
                         Spacer(modifier = Modifier.height(12.dp))
                         Text(
-                            text = "Customize the compact player that appears at the bottom of your screen.",
+                            text = context.getString(R.string.settings_customize_miniplayer),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onPrimaryContainer
                         )
@@ -8201,7 +8588,7 @@ fun PlayerCustomizationSettingsScreen(onBackClick: () -> Unit) {
     var showPlayerThumbStyleSheet by remember { mutableStateOf(false) }
 
     CollapsibleHeaderScreen(
-        title = "Player",
+        title = context.getString(R.string.settings_player),
         showBackButton = true,
         onBackClick = onBackClick
     ) { modifier ->
@@ -8215,7 +8602,7 @@ fun PlayerCustomizationSettingsScreen(onBackClick: () -> Unit) {
             item {
                 Spacer(modifier = Modifier.height(24.dp))
                 Text(
-                    text = "Player Controls",
+                    text = context.getString(R.string.settings_player_controls),
                     style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
                     color = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.padding(start = 16.dp, bottom = 8.dp)
@@ -8229,8 +8616,8 @@ fun PlayerCustomizationSettingsScreen(onBackClick: () -> Unit) {
                     Column {
                         SettingRow(
                             icon = Icons.Default.Reorder,
-                            title = "Chip Order & Visibility",
-                            description = "Customize and reorder player action chips",
+                            title = context.getString(R.string.settings_chip_order),
+                            description = context.getString(R.string.settings_chip_order_desc),
                             onClick = { showChipOrderBottomSheet = true }
                         )
                     }
@@ -8256,8 +8643,8 @@ fun PlayerCustomizationSettingsScreen(onBackClick: () -> Unit) {
                         // Art View Overlay toggle
                         SettingRow(
                             icon = Icons.Default.Gradient,
-                            title = "Artwork Overlay",
-                            description = "Show overlay on album artwork",
+                            title = context.getString(R.string.settings_artwork_overlay),
+                            description = context.getString(R.string.settings_artwork_overlay_desc),
                             toggleState = playerShowGradientOverlay,
                             onToggleChange = { appSettings.setPlayerShowGradientOverlay(it) }
                         )
@@ -8267,8 +8654,8 @@ fun PlayerCustomizationSettingsScreen(onBackClick: () -> Unit) {
                         )
                         SettingRow(
                             icon = Icons.Default.Info,
-                            title = "Song Info on Artwork",
-                            description = "Show title and artist overlay on album art",
+                            title = context.getString(R.string.settings_song_info_artwork),
+                            description = context.getString(R.string.settings_song_info_artwork_desc),
                             toggleState = playerShowSongInfoOnArtwork,
                             onToggleChange = { appSettings.setPlayerShowSongInfoOnArtwork(it) }
                         )
@@ -8278,8 +8665,8 @@ fun PlayerCustomizationSettingsScreen(onBackClick: () -> Unit) {
                         )
                         SettingRow(
                             icon = Icons.Default.HighQuality,
-                            title = "Audio Quality Badges",
-                            description = "Display codec and bitrate information",
+                            title = context.getString(R.string.settings_audio_quality_badges),
+                            description = context.getString(R.string.settings_audio_quality_badges_desc),
                             toggleState = playerShowAudioQualityBadges,
                             onToggleChange = { appSettings.setPlayerShowAudioQualityBadges(it) }
                         )
@@ -8291,7 +8678,7 @@ fun PlayerCustomizationSettingsScreen(onBackClick: () -> Unit) {
             item {
                 Spacer(modifier = Modifier.height(24.dp))
                 Text(
-                    text = "Lyrics Customization",
+                    text = context.getString(R.string.settings_lyrics_customization),
                     style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
                     color = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.padding(start = 16.dp, bottom = 8.dp)
@@ -8306,8 +8693,8 @@ fun PlayerCustomizationSettingsScreen(onBackClick: () -> Unit) {
                         // Show Lyrics toggle
                         SettingRow(
                             icon = Icons.Rounded.Lyrics,
-                            title = "Show Lyrics",
-                            description = "Display synchronized lyrics in player",
+                            title = context.getString(R.string.settings_show_lyrics),
+                            description = context.getString(R.string.settings_show_lyrics_desc),
                             toggleState = showLyrics,
                             onToggleChange = { appSettings.setShowLyrics(it) }
                         )
@@ -8378,7 +8765,7 @@ fun PlayerCustomizationSettingsScreen(onBackClick: () -> Unit) {
                                 }
                                 Column {
                                     Text(
-                                        text = "Lyrics Transition",
+                                        text = context.getString(R.string.settings_lyrics_transition),
                                         style = MaterialTheme.typography.titleMedium,
                                         fontWeight = FontWeight.Medium,
                                         color = MaterialTheme.colorScheme.onSurface
@@ -8428,7 +8815,7 @@ fun PlayerCustomizationSettingsScreen(onBackClick: () -> Unit) {
                                 }
                                 Column {
                                     Text(
-                                        text = "Lyrics Text Size",
+                                        text = context.getString(R.string.settings_lyrics_text_size),
                                         style = MaterialTheme.typography.titleMedium,
                                         fontWeight = FontWeight.Medium,
                                         color = MaterialTheme.colorScheme.onSurface
@@ -8488,7 +8875,7 @@ fun PlayerCustomizationSettingsScreen(onBackClick: () -> Unit) {
                                         color = MaterialTheme.colorScheme.onSurface
                                     )
                                     Text(
-                                        text = "Horizontal text alignment",
+                                        text = context.getString(R.string.settings_lyrics_alignment_desc),
                                         style = MaterialTheme.typography.bodyMedium,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
@@ -8520,8 +8907,8 @@ fun PlayerCustomizationSettingsScreen(onBackClick: () -> Unit) {
                         // Show art below lyrics
                         SettingRow(
                             icon = Icons.Default.Image,
-                            title = "Show Art Below Lyrics",
-                            description = "Display art beneath the lyrics overlay",
+                            title = context.getString(R.string.settings_show_art_below_lyrics),
+                            description = context.getString(R.string.settings_show_art_below_lyrics_desc),
                             toggleState = playerShowArtBelowLyrics,
                             onToggleChange = { appSettings.setPlayerShowArtBelowLyrics(it) }
                         )
@@ -8533,7 +8920,7 @@ fun PlayerCustomizationSettingsScreen(onBackClick: () -> Unit) {
             item {
                 Spacer(modifier = Modifier.height(24.dp))
                 Text(
-                    text = "Layout Options",
+                    text = context.getString(R.string.settings_layout_options),
                     style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
                     color = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.padding(start = 16.dp, bottom = 8.dp)
@@ -8547,8 +8934,8 @@ fun PlayerCustomizationSettingsScreen(onBackClick: () -> Unit) {
                     Column {
                         SettingRow(
                             icon = Icons.Default.Forward10,
-                            title = "Seek Buttons",
-                            description = "Show 10-second skip forward/backward buttons",
+                            title = context.getString(R.string.settings_seek_buttons),
+                            description = context.getString(R.string.settings_seek_buttons_desc),
                             toggleState = playerShowSeekButtons,
                             onToggleChange = { appSettings.setPlayerShowSeekButtons(it) }
                         )
@@ -8558,11 +8945,11 @@ fun PlayerCustomizationSettingsScreen(onBackClick: () -> Unit) {
                         )
                         SettingRow(
                             icon = Icons.Default.FormatAlignCenter,
-                            title = "Text Alignment",
+                            title = context.getString(R.string.settings_text_alignment),
                             description = when(playerTextAlignment) {
-                                "START" -> "Left aligned"
-                                "END" -> "Right aligned"
-                                else -> "Center aligned"
+                                "START" -> context.getString(R.string.settings_left_aligned)
+                                "END" -> context.getString(R.string.settings_right_aligned)
+                                else -> context.getString(R.string.settings_center_aligned)
                             },
                             onClick = { showTextAlignmentSheet = true }
                         )
@@ -8631,7 +9018,7 @@ fun PlayerCustomizationSettingsScreen(onBackClick: () -> Unit) {
                         )
                         SettingRow(
                             icon = Icons.Default.TouchApp,
-                            title = "Thumb Style",
+                            title = context.getString(R.string.settings_thumb_style),
                             description = playerProgressThumbStyle.lowercase().replaceFirstChar { it.uppercase() },
                             onClick = { showPlayerThumbStyleSheet = true }
                         )
@@ -8696,7 +9083,7 @@ fun PlayerCustomizationSettingsScreen(onBackClick: () -> Unit) {
                         }
                         Spacer(modifier = Modifier.height(12.dp))
                         Text(
-                            text = "Personalize your player experience with custom chip layouts, visual effects, and display preferences.",
+                            text = context.getString(R.string.settings_personalize_player),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onPrimaryContainer
                         )
@@ -8987,7 +9374,7 @@ fun PlayerCustomizationSettingsScreen(onBackClick: () -> Unit) {
                         )
                         Spacer(modifier = Modifier.width(12.dp))
                         Text(
-                            text = "Adjusts the roundness of album artwork corners",
+                            text = context.getString(R.string.settings_adjust_artwork_corners),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -9610,16 +9997,16 @@ fun ThemeCustomizationSettingsScreen(onBackClick: () -> Unit) {
 
                     // Show success feedback
                     HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.LongPress)
-                    Toast.makeText(context, "Font imported successfully", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, context.getString(R.string.theme_font_imported), Toast.LENGTH_SHORT).show()
                 } else {
                     // Font file copied but can't be loaded
                     HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.Reject)
-                    Toast.makeText(context, "Invalid font file format", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, context.getString(R.string.theme_font_invalid), Toast.LENGTH_SHORT).show()
                 }
             } else {
                 // Failed to copy font file
                 HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.Reject)
-                Toast.makeText(context, "Failed to import font file", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, context.getString(R.string.theme_font_import_failed), Toast.LENGTH_SHORT).show()
             }
         }
     }
@@ -9875,13 +10262,13 @@ fun ThemeCustomizationSettingsScreen(onBackClick: () -> Unit) {
             ExpressiveShapesSettingsScreen(onBackClick = { navigateToExpressiveShapes = false })
         } else {
             CollapsibleHeaderScreen(
-                title = "Theme",
+                title = context.getString(R.string.settings_theme),
                 showBackButton = true,
                 onBackClick = onBackClick
             ) { modifier ->
         val settingGroups = listOf(
             SettingGroup(
-                title = "Display Mode",
+                title = context.getString(R.string.theme_display_mode),
                 items = listOf(
                     // Display Mode Button Group
                     SettingItem(
@@ -9903,7 +10290,7 @@ fun ThemeCustomizationSettingsScreen(onBackClick: () -> Unit) {
                 )
             ),
             SettingGroup(
-                title = "Color Customization",
+                title = context.getString(R.string.theme_color_customization),
                 items = listOf(
                     SettingItem(
                         Icons.Default.Palette,
@@ -9945,7 +10332,7 @@ fun ThemeCustomizationSettingsScreen(onBackClick: () -> Unit) {
                 )
             ),
             SettingGroup(
-                title = "Font Customization",
+                title = context.getString(R.string.theme_font_customization),
                 items = listOf(
                     SettingItem(
                         Icons.Default.TextFields,
@@ -9990,7 +10377,7 @@ fun ThemeCustomizationSettingsScreen(onBackClick: () -> Unit) {
                 )
             ),
             SettingGroup(
-                title = "Festive Themes",
+                title = context.getString(R.string.theme_festive_themes),
                 items = buildList {
                     add(
                         SettingItem(
@@ -10005,8 +10392,8 @@ fun ThemeCustomizationSettingsScreen(onBackClick: () -> Unit) {
                         add(
                             SettingItem(
                                 Icons.Default.EventAvailable,
-                                "Auto-Detect Holidays",
-                                "Automatically show decorations for holidays",
+                                context.getString(R.string.theme_auto_detect),
+                                context.getString(R.string.theme_auto_detect_desc),
                                 toggleState = festiveThemeAutoDetect,
                                 onToggleChange = { appSettings.setFestiveThemeAutoDetect(it) }
                             )
@@ -10295,7 +10682,7 @@ fun ThemeCustomizationSettingsScreen(onBackClick: () -> Unit) {
             ) {
                 item {
                     Text(
-                        text = "Festive Theme Settings",
+                        text = context.getString(R.string.theme_festive_settings),
                         style = MaterialTheme.typography.headlineSmall,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface,
@@ -11503,7 +11890,7 @@ private fun CustomColorsDialog(
                                         val tertiaryHex = String.format("%06X", (tertiaryColor.toArgb() and 0xFFFFFF))
                                         val customScheme = "custom_${primaryHex}_${secondaryHex}_${tertiaryHex}"
                                         appSettings.setCustomColorScheme(customScheme)
-                                        Toast.makeText(context, "Custom colors applied!", Toast.LENGTH_SHORT).show()
+                                        Toast.makeText(context, context.getString(R.string.theme_colors_applied), Toast.LENGTH_SHORT).show()
                                         onDismiss()
                                     },
                                     modifier = Modifier.weight(1f),
@@ -11517,7 +11904,7 @@ private fun CustomColorsDialog(
                                         modifier = Modifier.size(18.dp)
                                     )
                                     Spacer(modifier = Modifier.width(8.dp))
-                                    Text("Apply")
+                                    Text(context.getString(R.string.ui_apply))
                                 }
                             }
                         }
@@ -12233,7 +12620,7 @@ fun ApiManagementSettingsScreen(onBackClick: () -> Unit) {
     val broadcastStatusEnabled by appSettings.broadcastStatusEnabled.collectAsState()
 
     CollapsibleHeaderScreen(
-        title = "Integrations",
+        title = context.getString(R.string.settings_api_management),
         showBackButton = true,
         onBackClick = {
             hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
@@ -12853,7 +13240,7 @@ fun CrashLogHistorySettingsScreen(onBackClick: () -> Unit, appSettings: AppSetti
     var selectedLog: String? by remember { mutableStateOf(null) }
 
     CollapsibleHeaderScreen(
-        title = "Crash Log History",
+        title = context.getString(R.string.settings_crash_log),
         showBackButton = true,
         onBackClick = {
             hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
@@ -12968,7 +13355,7 @@ fun CrashLogHistorySettingsScreen(onBackClick: () -> Unit, appSettings: AppSetti
                             modifier = Modifier.size(18.dp)
                         )
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("Clear All Logs")
+                        Text(context.getString(R.string.settings_clear_all_logs))
                     }
                 }
             }
@@ -12986,7 +13373,7 @@ fun CrashLogHistorySettingsScreen(onBackClick: () -> Unit, appSettings: AppSetti
                     tint = MaterialTheme.colorScheme.error
                 )
             },
-            title = { Text("Crash Log Details") },
+            title = { Text(context.getString(R.string.settings_crash_log_details)) },
             text = {
                 OutlinedTextField(
                     value = selectedLog ?: "No log details available.",
@@ -13004,7 +13391,7 @@ fun CrashLogHistorySettingsScreen(onBackClick: () -> Unit, appSettings: AppSetti
                         val clip = ClipData.newPlainText("Rhythm Crash Log", selectedLog)
                         clipboard.setPrimaryClip(clip)
                         showLogDetailDialog = false
-                        Toast.makeText(context, "Log copied to clipboard", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, context.getString(R.string.settings_log_copied), Toast.LENGTH_SHORT).show()
                     }
                 ) {
                     Icon(
@@ -13013,7 +13400,7 @@ fun CrashLogHistorySettingsScreen(onBackClick: () -> Unit, appSettings: AppSetti
                         modifier = Modifier.size(18.dp)
                     )
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("Copy Log")
+                    Text(context.getString(R.string.settings_copy_log))
                 }
             },
             dismissButton = {
@@ -13137,7 +13524,7 @@ fun LyricsSourceSettingsScreen(onBackClick: () -> Unit) {
     val lyricsSourcePreference by appSettings.lyricsSourcePreference.collectAsState()
 
     CollapsibleHeaderScreen(
-        title = "Lyrics Source",
+        title = context.getString(R.string.settings_lyrics_source),
         showBackButton = true,
         onBackClick = {
             hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
@@ -13375,7 +13762,7 @@ fun HomeScreenCustomizationSettingsScreen(onBackClick: () -> Unit) {
     }
 
     CollapsibleHeaderScreen(
-        title = "Home",
+        title = context.getString(R.string.settings_home_screen),
         showBackButton = true,
         onBackClick = {
             HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.LongPress)
@@ -13400,7 +13787,7 @@ fun HomeScreenCustomizationSettingsScreen(onBackClick: () -> Unit) {
             item(key = "header_customization_header", contentType = "section_header") {
                 Spacer(modifier = Modifier.height(24.dp))
                 Text(
-                    text = "Header Customization",
+                    text = context.getString(R.string.settings_header_customization),
                     style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
                     color = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.padding(start = 16.dp, bottom = 8.dp)
@@ -13461,13 +13848,13 @@ fun HomeScreenCustomizationSettingsScreen(onBackClick: () -> Unit) {
                                 }
                                 Column {
                                     Text(
-                                        text = "Always Start Collapsed",
+                                        text = context.getString(R.string.settings_always_start_collapsed),
                                         style = MaterialTheme.typography.titleMedium,
                                         fontWeight = FontWeight.Medium,
                                         color = MaterialTheme.colorScheme.onSurface
                                     )
                                     Text(
-                                        text = "Start all screens with collapsed header",
+                                        text = context.getString(R.string.settings_start_collapsed),
                                         style = MaterialTheme.typography.bodyMedium,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
@@ -13518,13 +13905,13 @@ fun HomeScreenCustomizationSettingsScreen(onBackClick: () -> Unit) {
                                 }
                                 Column {
                                     Text(
-                                        text = "Header Display",
+                                        text = context.getString(R.string.settings_header_display),
                                         style = MaterialTheme.typography.titleMedium,
                                         fontWeight = FontWeight.Medium,
                                         color = MaterialTheme.colorScheme.onSurface
                                     )
                                     Text(
-                                        text = "Choose what to show in header",
+                                        text = context.getString(R.string.settings_choose_header_content),
                                         style = MaterialTheme.typography.bodyMedium,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
@@ -13584,7 +13971,7 @@ fun HomeScreenCustomizationSettingsScreen(onBackClick: () -> Unit) {
                                         }
                                         Column {
                                             Text(
-                                                text = "Visibility",
+                                                text = context.getString(R.string.settings_visibility),
                                                 style = MaterialTheme.typography.titleMedium,
                                                 fontWeight = FontWeight.Medium,
                                                 color = MaterialTheme.colorScheme.onSurface
@@ -13669,13 +14056,13 @@ fun HomeScreenCustomizationSettingsScreen(onBackClick: () -> Unit) {
                             }
                             Column {
                                 Text(
-                                    text = "Show Greeting",
+                                    text = context.getString(R.string.settings_show_greeting),
                                     style = MaterialTheme.typography.titleMedium,
                                     fontWeight = FontWeight.Medium,
                                     color = MaterialTheme.colorScheme.onSurface
                                 )
                                 Text(
-                                    text = "Show greeting and Discover section header",
+                                    text = context.getString(R.string.settings_show_greeting_desc),
                                     style = MaterialTheme.typography.bodyMedium,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -13696,7 +14083,7 @@ fun HomeScreenCustomizationSettingsScreen(onBackClick: () -> Unit) {
             item(key = "section_order_header", contentType = "section_header") {
                 Spacer(modifier = Modifier.height(24.dp))
                 Text(
-                    text = "Section Order & Visibility",
+                    text = context.getString(R.string.settings_section_order_visibility),
                     style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
                     color = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.padding(start = 16.dp, bottom = 8.dp)
@@ -13748,13 +14135,13 @@ fun HomeScreenCustomizationSettingsScreen(onBackClick: () -> Unit) {
                             }
                             Column {
                                 Text(
-                                    text = "Reorder & Toggle Sections",
+                                    text = context.getString(R.string.settings_reorder_toggle_sections),
                                     style = MaterialTheme.typography.titleMedium,
                                     fontWeight = FontWeight.Medium,
                                     color = MaterialTheme.colorScheme.onSurface
                                 )
                                 Text(
-                                    text = "Customize home screen layout",
+                                    text = context.getString(R.string.settings_customize_home_layout),
                                     style = MaterialTheme.typography.bodyMedium,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -13775,7 +14162,7 @@ fun HomeScreenCustomizationSettingsScreen(onBackClick: () -> Unit) {
                 Column {
                     Spacer(modifier = Modifier.height(24.dp))
                     Text(
-                        text = "Widget Item Counts",
+                        text = context.getString(R.string.settings_widget_item_counts),
                         style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
                         color = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.padding(start = 16.dp, bottom = 8.dp)
@@ -13910,7 +14297,7 @@ fun HomeScreenCustomizationSettingsScreen(onBackClick: () -> Unit) {
                     Column {
                         Spacer(modifier = Modifier.height(24.dp))
                         Text(
-                            text = "Discover Carousel",
+                            text = context.getString(R.string.settings_discover_carousel),
                             style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
                             color = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.padding(start = 16.dp, bottom = 8.dp)
@@ -13948,7 +14335,7 @@ fun HomeScreenCustomizationSettingsScreen(onBackClick: () -> Unit) {
                                                 color = MaterialTheme.colorScheme.onSurface
                                             )
                                             Text(
-                                                text = "Choose how albums are displayed",
+                                                text = context.getString(R.string.settings_choose_album_display),
                                                 style = MaterialTheme.typography.bodySmall,
                                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                                             )
@@ -14584,7 +14971,7 @@ fun ExpressiveShapesSettingsScreen(onBackClick: () -> Unit) {
     }
     
     CollapsibleHeaderScreen(
-        title = "Shapes",
+        title = context.getString(R.string.settings_expressive_shapes),
         showBackButton = true,
         onBackClick = onBackClick
     ) { modifier ->

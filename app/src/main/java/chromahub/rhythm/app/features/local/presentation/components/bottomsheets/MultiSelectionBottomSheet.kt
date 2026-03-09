@@ -30,6 +30,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.rounded.Block
 import androidx.compose.material.icons.rounded.Delete
+import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.material.icons.rounded.HeartBroken
 import androidx.compose.material.icons.rounded.Info
@@ -99,7 +100,8 @@ fun MultiSelectionBottomSheet(
     onToggleLikeAll: (shouldLike: Boolean) -> Unit,
     onGoToAlbum: (() -> Unit)? = null,
     onGoToArtist: (() -> Unit)? = null,
-    onAddToBlacklist: (() -> Unit)? = null
+    onAddToBlacklist: (() -> Unit)? = null,
+    onBatchEditTags: (() -> Unit)? = null
 ) {
     val context = LocalContext.current
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -312,6 +314,27 @@ fun MultiSelectionBottomSheet(
                                         HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
                                         onAddToBlacklist()
                                         onDismiss()
+                                    }
+                                )
+                            }
+                        }
+                    }
+                    
+                    // Row 6: Batch edit tags
+                    if (onBatchEditTags != null) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Box(modifier = Modifier.fillMaxWidth()) {
+                                SongOptionGridItem(
+                                    icon = Icons.Rounded.Edit,
+                                    text = "Edit tags",
+                                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                                    iconColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                                    onClick = {
+                                        HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
+                                        onBatchEditTags()
                                     }
                                 )
                             }

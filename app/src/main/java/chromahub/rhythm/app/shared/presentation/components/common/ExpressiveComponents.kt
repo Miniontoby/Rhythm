@@ -1254,6 +1254,7 @@ fun ExpressivePlayerControlGroup(
     modifier: Modifier = Modifier,
     isExtraSmallWidth: Boolean = false,
     isCompactWidth: Boolean = false,
+    isCompactHeight: Boolean = false,
     isLoading: Boolean = false
 ) {
     // Animation state management
@@ -1283,14 +1284,17 @@ fun ExpressivePlayerControlGroup(
         }
     }
 
-    // Container height and padding
+    // Container height and padding — scale down for compact-height phones
     val containerHeight = when {
+        isExtraSmallWidth && isCompactHeight -> 52.dp
         isExtraSmallWidth -> 64.dp
+        isCompactHeight -> 60.dp
         isCompactWidth -> 72.dp
         else -> 80.dp
     }
     
     val containerPadding = when {
+        isCompactHeight -> 10.dp
         isExtraSmallWidth -> 12.dp
         isCompactWidth -> 16.dp
         else -> 16.dp
@@ -1298,13 +1302,17 @@ fun ExpressivePlayerControlGroup(
     
     // Button sizes
     val prevNextSize = when {
+        isExtraSmallWidth && isCompactHeight -> 36.dp
         isExtraSmallWidth -> 42.dp
+        isCompactHeight -> 40.dp
         isCompactWidth -> 46.dp
         else -> 50.dp
     }
     
     val seekButtonSize = when {
+        isExtraSmallWidth && isCompactHeight -> 40.dp
         isExtraSmallWidth -> 48.dp
+        isCompactHeight -> 46.dp
         isCompactWidth -> 54.dp
         else -> 60.dp
     }
@@ -1312,6 +1320,7 @@ fun ExpressivePlayerControlGroup(
     // Spacing using native expressive pattern
     val buttonSpacing = when {
         isExtraSmallWidth -> 6.dp
+        isCompactHeight -> 6.dp
         isCompactWidth -> 8.dp
         else -> 8.dp
     }
@@ -1380,6 +1389,7 @@ fun ExpressivePlayerControlGroup(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(
             when {
+                isCompactHeight -> 28.dp
                 isExtraSmallWidth -> 32.dp
                 isCompactWidth -> 36.dp
                 else -> 40.dp
@@ -1666,7 +1676,9 @@ fun ExpressiveToggleButtonGroup(
     onToggleRepeat: () -> Unit,
     showLyrics: Boolean,
     modifier: Modifier = Modifier,
-    isDarkTheme: Boolean = false
+    isDarkTheme: Boolean = false,
+    isCompactHeight: Boolean = false,
+    isCompactWidth: Boolean = false
 ) {
     Row(
         modifier = modifier.fillMaxWidth(),
@@ -1679,7 +1691,9 @@ fun ExpressiveToggleButtonGroup(
             onClick = onToggleShuffle,
             icon = RhythmIcons.Shuffle,
             label = "Shuffle",
-            isDarkTheme = isDarkTheme
+            isDarkTheme = isDarkTheme,
+            isCompactHeight = isCompactHeight,
+            isCompactWidth = isCompactWidth
         )
         
         // Lyrics toggle button (only if lyrics are enabled)
@@ -1689,7 +1703,9 @@ fun ExpressiveToggleButtonGroup(
                 onClick = onToggleLyrics,
                 icon = RhythmIcons.Player.Lyrics,
                 label = "Lyrics",
-                isDarkTheme = isDarkTheme
+                isDarkTheme = isDarkTheme,
+                isCompactHeight = isCompactHeight,
+                isCompactWidth = isCompactWidth
             )
         }
         
@@ -1703,7 +1719,9 @@ fun ExpressiveToggleButtonGroup(
                 else -> RhythmIcons.Repeat
             },
             label = "Repeat",
-            isDarkTheme = isDarkTheme
+            isDarkTheme = isDarkTheme,
+            isCompactHeight = isCompactHeight,
+            isCompactWidth = isCompactWidth
         )
     }
 }
@@ -1718,6 +1736,8 @@ private fun ExpressiveMorphingToggleButton(
     icon: ImageVector,
     label: String,
     isDarkTheme: Boolean,
+    isCompactHeight: Boolean = false,
+    isCompactWidth: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     val interactionSource = remember { MutableInteractionSource() }
@@ -1751,14 +1771,18 @@ private fun ExpressiveMorphingToggleButton(
         label = "toggleContentColor"
     )
     
+    val isCompact = isCompactHeight || isCompactWidth
+    
     val width by animateDpAsState(
-        targetValue = if (isActive) 48.dp else 100.dp,
+        targetValue = if (isActive) (if (isCompact) 40.dp else 48.dp) else (if (isCompact) 84.dp else 100.dp),
         animationSpec = spring(
             dampingRatio = Spring.DampingRatioMediumBouncy,
             stiffness = Spring.StiffnessLow
         ),
         label = "toggleButtonWidth"
     )
+    
+    val toggleHeight = if (isCompact) 40.dp else 48.dp
     
     val scale by animateFloatAsState(
         targetValue = if (isPressed) 0.92f else 1f,
@@ -1773,7 +1797,7 @@ private fun ExpressiveMorphingToggleButton(
         onClick = onClick,
         modifier = modifier
             .width(width)
-            .height(48.dp)
+            .height(toggleHeight)
             .graphicsLayer {
                 scaleX = scale
                 scaleY = scale
@@ -1792,7 +1816,7 @@ private fun ExpressiveMorphingToggleButton(
             Icon(
                 imageVector = icon,
                 contentDescription = label,
-                modifier = Modifier.size(20.dp),
+                modifier = Modifier.size(if (isCompact) 18.dp else 20.dp),
                 tint = contentColor
             )
             

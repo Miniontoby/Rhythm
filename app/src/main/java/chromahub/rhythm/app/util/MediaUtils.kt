@@ -411,19 +411,22 @@ object MediaUtils {
 
         try {
             // Query ContentResolver for file information
-            val projection = arrayOf(
+            val projection = mutableListOf(
                 MediaStore.Audio.Media.DATA,
                 MediaStore.Audio.Media.SIZE,
                 MediaStore.Audio.Media.DATE_ADDED,
                 MediaStore.Audio.Media.DATE_MODIFIED,
                 MediaStore.Audio.Media.COMPOSER,
-                MediaStore.Audio.Media.CD_TRACK_NUMBER,
                 MediaStore.Audio.Media.TRACK,
-                MediaStore.Audio.Media.ALBUM_ARTIST,
                 MediaStore.Audio.Media.YEAR,
                 MediaStore.Audio.Media.MIME_TYPE,
                 MediaStore.Audio.Media._ID // Need song ID for genre lookup
-            )
+            ).apply {
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+                    add(MediaStore.Audio.Media.CD_TRACK_NUMBER)
+                    add(MediaStore.Audio.Media.ALBUM_ARTIST)
+                }
+            }.toTypedArray()
 
             contentResolver.query(
                 MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
@@ -442,8 +445,7 @@ object MediaUtils {
                     val composerIndex =
                         cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.COMPOSER)
                     val trackIndex = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.TRACK)
-                    val albumArtistIndex =
-                        cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM_ARTIST)
+                    val albumArtistIndex = cursor.getColumnIndex(MediaStore.Audio.Media.ALBUM_ARTIST)
                     val yearIndex = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.YEAR)
                     val mimeTypeIndex =
                         cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.MIME_TYPE)
@@ -455,7 +457,7 @@ object MediaUtils {
                     dateModified =
                         cursor.getLong(dateModifiedIndex) * 1000 // Convert to milliseconds
                     composer = cursor.getString(composerIndex) ?: ""
-                    albumArtist = cursor.getString(albumArtistIndex) ?: ""
+                    albumArtist = if (albumArtistIndex != -1) cursor.getString(albumArtistIndex) ?: "" else ""
                     year = cursor.getInt(yearIndex)
                     mimeType = cursor.getString(mimeTypeIndex) ?: ""
                     val songId = cursor.getLong(songIdIndex)
@@ -490,14 +492,8 @@ object MediaUtils {
                     }
                 }
 
-                // Get sample rate (try multiple methods for better compatibility)
-                val sampleRateStr = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                    // Android 11+ has better metadata support
-                    retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_SAMPLERATE)
-                } else {
-                    // Fallback for older versions
-                    retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_CAPTURE_FRAMERATE)
-                }
+                // Get sample rate - METADATA_KEY_SAMPLERATE is available since API 10, works on Android 8+
+                val sampleRateStr = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_SAMPLERATE)
 
                 if (sampleRateStr != null) {
                     val sampleRateValue = sampleRateStr.toIntOrNull()
@@ -1109,7 +1105,7 @@ object MediaUtils {
                 put(MediaStore.Audio.Media.TITLE, newTitle)
                 put(MediaStore.Audio.Media.ARTIST, newArtist)
                 put(MediaStore.Audio.Media.ALBUM, newAlbum)
-                if (newGenre.isNotBlank()) {
+                if (newGenre.isNotBlank() && android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
                     put(MediaStore.Audio.Media.GENRE, newGenre)
                 }
                 if (newYear > 0) {
@@ -1636,7 +1632,7 @@ object MediaUtils {
                 put(MediaStore.Audio.Media.TITLE, pendingRequest.newTitle)
                 put(MediaStore.Audio.Media.ARTIST, pendingRequest.newArtist)
                 put(MediaStore.Audio.Media.ALBUM, pendingRequest.newAlbum)
-                if (pendingRequest.newGenre.isNotBlank()) {
+                if (pendingRequest.newGenre.isNotBlank() && android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
                     put(MediaStore.Audio.Media.GENRE, pendingRequest.newGenre)
                 }
                 if (pendingRequest.newYear > 0) {
@@ -1843,6 +1839,8 @@ object MediaUtils {
      * This column may contain either a genre ID or genre name depending on Android version
      */
     private fun getGenreFromMediaStoreColumn(context: Context, songId: Int): String? {
+        // GENRE column only available on API 30+ (Android 11)
+        if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.R) return null
         return try {
             val projection = arrayOf(MediaStore.Audio.Media.GENRE)
             val selection = "${MediaStore.Audio.Media._ID} = ?"
@@ -2043,22 +2041,43 @@ object MediaUtils {
             val embeddedArt = retriever.embeddedPicture
             if (embeddedArt != null && embeddedArt.isNotEmpty()) {
                 if (lossless) {
-                    // Detect image format from magic bytes and write raw bytes directly
-                    // This preserves the original embedded image byte-for-byte
-                    val isJpeg = embeddedArt.size >= 2 && embeddedArt[0] == 0xFF.toByte() && embeddedArt[1] == 0xD8.toByte()
-                    val ext = if (isJpeg) "jpg" else "png"
-                    val artworkFile = File(cacheDir, "embedded_art_lossless_${songUri.hashCode()}.$ext")
-                    if (!artworkFile.exists()) {
-                        FileOutputStream(artworkFile).use { out ->
-                            out.write(embeddedArt)
-                            out.flush()
+                    // Detect image format from magic bytes
+                    val isJpeg = embeddedArt.size >= 2 &&
+                            embeddedArt[0] == 0xFF.toByte() && embeddedArt[1] == 0xD8.toByte()
+                    val isPng = embeddedArt.size >= 4 &&
+                            embeddedArt[0] == 0x89.toByte() && embeddedArt[1] == 0x50.toByte() &&
+                            embeddedArt[2] == 0x4E.toByte() && embeddedArt[3] == 0x47.toByte()
+
+                    if (isJpeg || isPng) {
+                        // Known format — write raw bytes losslessly
+                        val ext = if (isJpeg) "jpg" else "png"
+                        val artworkFile = File(cacheDir, "embedded_art_lossless_${songUri.hashCode()}.$ext")
+                        if (!artworkFile.exists() || artworkFile.length() == 0L) {
+                            FileOutputStream(artworkFile).use { out ->
+                                out.write(embeddedArt)
+                                out.flush()
+                            }
                         }
+                        return artworkFile.toUri()
+                    } else {
+                        // Unknown format (BMP, TIFF, WEBP, etc.) — decode then save as PNG to preserve quality
+                        val bitmap = BitmapFactory.decodeByteArray(embeddedArt, 0, embeddedArt.size)
+                        if (bitmap != null) {
+                            val artworkFile = File(cacheDir, "embedded_art_lossless_${songUri.hashCode()}.png")
+                            if (!artworkFile.exists() || artworkFile.length() == 0L) {
+                                FileOutputStream(artworkFile).use { out ->
+                                    bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
+                                    out.flush()
+                                }
+                            }
+                            return artworkFile.toUri()
+                        }
+                        return null
                     }
-                    return artworkFile.toUri()
                 } else {
                     // Save to cache with JPEG compression (default behavior)
                     val artworkFile = File(cacheDir, "embedded_art_${songUri.hashCode()}.jpg")
-                    if (!artworkFile.exists()) {
+                    if (!artworkFile.exists() || artworkFile.length() == 0L) {
                         FileOutputStream(artworkFile).use { out ->
                             val bitmap = BitmapFactory.decodeByteArray(embeddedArt, 0, embeddedArt.size)
                             if (bitmap != null) {

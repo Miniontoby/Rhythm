@@ -4,6 +4,7 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.ksp)
     id("kotlin-parcelize")
 //    alias(libs.plugins.kotlin.serialization)
 }
@@ -16,8 +17,8 @@ android {
         applicationId = "chromahub.rhythm.app"
         minSdk = 26
         targetSdk = 36
-        versionCode = 43338911
-        versionName = "4.3.338.911"
+        versionCode = 43340916
+        versionName = "4.3.340.916 Beta"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -212,8 +213,8 @@ dependencies {
     implementation("androidx.mediarouter:mediarouter:1.8.1")
     
     // Ktor for HTTP server (Cast media serving)
-    implementation("io.ktor:ktor-server-core:3.3.3")
-    implementation("io.ktor:ktor-server-netty:3.3.3")
+    implementation("io.ktor:ktor-server-core:3.4.1")
+    implementation("io.ktor:ktor-server-netty:3.4.1")
     
     // Coil for image loading
     implementation("io.coil-kt:coil-compose:2.7.0")
@@ -237,7 +238,11 @@ dependencies {
     
     // WorkManager for background tasks
     implementation("androidx.work:work-runtime-ktx:2.11.1")
+    
+    // Room database
+    implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
+    ksp(libs.androidx.room.compiler)
 
     // Testing
     testImplementation(libs.junit)

@@ -363,9 +363,10 @@ class MediaPlaybackService : MediaLibraryService(), Player.Listener {
     
     private fun initializePlayer() {
         // Initialize RhythmPlayerEngine for crossfade support
-        // Pass bit-perfect mode setting to enable native sample rate output
-        val bitPerfectEnabled = appSettings.bitPerfectMode.value
-        Log.d(TAG, "Initializing player with bit-perfect mode: $bitPerfectEnabled")
+        // Enable bit-perfect when explicitly set OR when audio routing mode is "app" (direct DAC output)
+        val audioRoutingMode = appSettings.audioRoutingMode.value
+        val bitPerfectEnabled = appSettings.bitPerfectMode.value || audioRoutingMode == "app"
+        Log.d(TAG, "Initializing player with bit-perfect mode: $bitPerfectEnabled (routing: $audioRoutingMode)")
         rhythmPlayerEngine = RhythmPlayerEngine(
             this, 
             bitPerfectMode = bitPerfectEnabled,

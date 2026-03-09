@@ -2907,10 +2907,11 @@ private fun GenreBrowseSection(
     // Get genre detection state from ViewModel
     val isGenreDetectionComplete by musicViewModel.isGenreDetectionComplete.collectAsState()
     
-    // Extract unique genres from songs - recompute when songs change
+    // Extract unique genres from songs - split multi-genre strings on comma/semicolon
     val genres = remember(songs) {
-        songs.mapNotNull { song ->
-            song.genre?.takeIf { it.isNotBlank() && it.lowercase() != "unknown" }
+        songs.flatMap { song ->
+            val raw = song.genre?.takeIf { it.isNotBlank() && it.lowercase() != "unknown" }
+            raw?.split(",", ";")?.map { it.trim() }?.filter { it.isNotBlank() } ?: emptyList()
         }.distinct().sorted()
     }
     
@@ -3014,7 +3015,9 @@ private fun GenreBrowseSection(
                             key = { "genre_$it" },
                             contentType = { "genre" }
                         ) { genre ->
-                            val songCount = songs.count { it.genre?.equals(genre, ignoreCase = true) == true }
+                            val songCount = songs.count { song ->
+                                song.genre?.split(",", ";")?.any { it.trim().equals(genre, ignoreCase = true) } == true
+                            }
                             
                             Card(
                                 onClick = {

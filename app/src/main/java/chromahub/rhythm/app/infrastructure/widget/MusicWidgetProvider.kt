@@ -73,7 +73,18 @@ class MusicWidgetProvider : AppWidgetProvider() {
         val intent = Intent(context, MediaPlaybackService::class.java).apply {
             this.action = action
         }
-        context.startService(intent)
+        try {
+            androidx.core.content.ContextCompat.startForegroundService(context, intent)
+        } catch (e: Exception) {
+            // Fallback: launch the main activity which will bind to the service
+            try {
+                val fallback = Intent(context, MainActivity::class.java).apply {
+                    this.action = action
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                context.startActivity(fallback)
+            } catch (_: Exception) { }
+        }
     }
 
     private fun updateWidget(

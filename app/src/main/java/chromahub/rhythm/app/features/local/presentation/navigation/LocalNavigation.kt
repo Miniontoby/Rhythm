@@ -1564,7 +1564,7 @@ private fun LocalNavigationContent(
                             viewModel.createPlaylist(name)
                         },
                         onRefreshClick = {
-                            viewModel.refreshLibrary()
+                            viewModel.refreshLibrary(showMediaScanLoader = false)
                         }, // Added onRefreshClick
                         sortOrder = sortOrder,
                         onSkipNext = onSkipNext,

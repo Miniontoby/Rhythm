@@ -609,6 +609,10 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     private val _isMediaScanning = MutableStateFlow(false)
     val isMediaScanning: StateFlow<Boolean> = _isMediaScanning.asStateFlow()
 
+    // Pull-to-refresh state (always set during refreshLibrary, independent of full-screen loader)
+    private val _isLibraryRefreshing = MutableStateFlow(false)
+    val isLibraryRefreshing: StateFlow<Boolean> = _isLibraryRefreshing.asStateFlow()
+
     // Genre detection state
     private val _isGenreDetectionComplete = MutableStateFlow(false)
     val isGenreDetectionComplete: StateFlow<Boolean> = _isGenreDetectionComplete.asStateFlow()
@@ -1089,6 +1093,50 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
      * This is called AFTER _isInitialized is set to true, so UI is already responsive.
      */
     private fun startBackgroundTasksDeferred() {
+        // Background sync: if initial load came from disk cache, refresh from MediaStore
+        // to pick up newly added/removed songs. This runs early so the library stays current.
+        // IMPORTANT: Merge cached metadata (genre, bitrate, sampleRate, channels, codec) from
+        // existing songs into fresh MediaStore results to avoid redundant re-processing.
+        viewModelScope.launch(Dispatchers.IO) {
+            delay(500) // Brief delay to let UI render with cached data first
+            try {
+                val cachedSongs = _songs.value
+                val cachedSongMap = cachedSongs.associateBy { it.id }
+                val freshSongs = repository.loadSongs(
+                    forceRefresh = true,
+                    allowedFormats = allowedFormats.value,
+                    minimumBitrate = minimumBitrate.value,
+                    minimumDuration = minimumDuration.value
+                )
+                if (freshSongs.isNotEmpty()) {
+                    // Merge cached metadata into fresh songs so post-scan processing isn't redone
+                    val mergedSongs = freshSongs.map { fresh ->
+                        val cached = cachedSongMap[fresh.id]
+                        if (cached != null) {
+                            fresh.copy(
+                                genre = fresh.genre ?: cached.genre,
+                                bitrate = fresh.bitrate ?: cached.bitrate,
+                                sampleRate = fresh.sampleRate ?: cached.sampleRate,
+                                channels = fresh.channels ?: cached.channels,
+                                codec = fresh.codec ?: cached.codec,
+                                artworkUri = fresh.artworkUri ?: cached.artworkUri
+                            )
+                        } else {
+                            fresh
+                        }
+                    }
+                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                        _songs.value = mergedSongs
+                    }
+                    // Persist merged data so new songs from MediaStore also get cached
+                    repository.persistSongCacheToDisk()
+                    Log.d(TAG, "Background MediaStore sync complete: ${mergedSongs.size} songs (merged metadata from ${cachedSongMap.size} cached)")
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error during background MediaStore sync", e)
+            }
+        }
+
         // Start listening time tracking (lightweight, can start immediately)
         viewModelScope.launch {
             try {
@@ -1176,6 +1224,8 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                         kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
                             _songs.value = updatedSongs
                         }
+                        // Persist extracted artwork URIs to disk cache
+                        repository.persistSongCacheToDisk()
                         Log.d(TAG, "Background embedded art extraction complete for ${currentSongs.size} songs")
                     }
                 }
@@ -1268,6 +1318,9 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                 _albums.value = repository.loadAlbums()
                 _artists.value = repository.loadArtists()
                 
+                // Persist newly discovered songs to disk cache
+                repository.persistSongCacheToDisk()
+                
                 // Update last scan time
                 appSettings.setLastScanTimestamp(System.currentTimeMillis())
             }
@@ -1285,6 +1338,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         Log.d(TAG, "Performing full MediaStore refresh...")
         try {
             val currentCount = _songs.value.size
+            val cachedSongMap = _songs.value.associateBy { it.id }
             // Run all heavy IO work off the main thread
             val (freshSongs, freshAlbums, freshArtists) = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
                 repository.refreshMusicData()
@@ -1298,11 +1352,28 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                 val artists = repository.loadArtists()
                 Triple(songs, albums, artists)
             }
-            _songs.value = freshSongs
+            // Merge cached metadata into fresh songs to preserve post-scan processing data
+            val mergedSongs = freshSongs.map { fresh ->
+                val cached = cachedSongMap[fresh.id]
+                if (cached != null) {
+                    fresh.copy(
+                        genre = fresh.genre ?: cached.genre,
+                        bitrate = fresh.bitrate ?: cached.bitrate,
+                        sampleRate = fresh.sampleRate ?: cached.sampleRate,
+                        channels = fresh.channels ?: cached.channels,
+                        codec = fresh.codec ?: cached.codec,
+                        artworkUri = fresh.artworkUri ?: cached.artworkUri
+                    )
+                } else {
+                    fresh
+                }
+            }
+            _songs.value = mergedSongs
             _albums.value = freshAlbums
             _artists.value = freshArtists
+            repository.persistSongCacheToDisk()
             appSettings.setLastScanTimestamp(System.currentTimeMillis())
-            Log.d(TAG, "MediaStore refresh complete: $currentCount -> ${freshSongs.size} songs")
+            Log.d(TAG, "MediaStore refresh complete: $currentCount -> ${mergedSongs.size} songs")
         } catch (e: Exception) {
             Log.e(TAG, "Error during MediaStore refresh", e)
         }
@@ -1331,6 +1402,8 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                 onComplete = { updatedSongs ->
                     // Update the songs state with the new genre information FIRST
                     _songs.value = updatedSongs
+                    // Persist genre data to disk cache
+                    repository.persistSongCacheToDisk()
                     // Then mark detection as complete AFTER songs are updated to prevent race condition
                     viewModelScope.launch {
                         delay(100) // Small delay to ensure songs state propagates
@@ -1364,6 +1437,8 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
             onComplete = { updatedSongs ->
                 // Update the songs state with the new audio metadata information
                 _songs.value = updatedSongs
+                // Persist metadata to disk cache
+                repository.persistSongCacheToDisk()
                 val songsWithMetadata = updatedSongs.count { 
                     it.bitrate != null && it.sampleRate != null && it.channels != null && it.codec != null 
                 }
@@ -1413,13 +1488,14 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
      * Triggers a refresh of all music data by rescanning the device's MediaStore.
      * This will update the songs, albums, and artists in the ViewModel.
      */
-    fun refreshLibrary() {
+    fun refreshLibrary(showMediaScanLoader: Boolean = true) {
         // Cancel any existing scan
         scanJob?.cancel()
         
         scanJob = viewModelScope.launch {
             Log.d(TAG, "Starting library refresh...")
-            _isMediaScanning.value = true // Show media scan loader
+            _isMediaScanning.value = showMediaScanLoader // Only show full-screen loader when requested
+            _isLibraryRefreshing.value = true // Always set for pull-to-refresh tracking
             _isInitialized.value = false // Indicate that data is being refreshed
             _isGenreDetectionComplete.value = false // Reset genre detection state
             // Don't reset _isGenreDetectionRunning to allow proper concurrency check
@@ -1473,6 +1549,28 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                     }
                 }
 
+                // Re-run embedded artwork extraction if ignoreMediaStoreCovers is enabled
+                launch {
+                    try {
+                        val ignoreMediaStoreCovers = appSettings.ignoreMediaStoreCovers.value
+                        val losslessArtwork = appSettings.losslessArtwork.value
+                        if (ignoreMediaStoreCovers || losslessArtwork) {
+                            delay(2000)
+                            val currentSongs = _songs.value
+                            if (currentSongs.isNotEmpty()) {
+                                val updatedSongs = repository.extractEmbeddedArtworkForSongs(currentSongs, losslessArtwork)
+                                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                                    _songs.value = updatedSongs
+                                }
+                                repository.persistSongCacheToDisk()
+                                Log.d(TAG, "Re-extracted embedded art for ${currentSongs.size} songs after library refresh")
+                            }
+                        }
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Error re-extracting embedded artwork after refresh", e)
+                    }
+                }
+
                 val duration = System.currentTimeMillis() - startTime
                 appSettings.setLastScanTimestamp(System.currentTimeMillis())
                 appSettings.setLastScanDuration(duration)
@@ -1501,6 +1599,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
             } finally {
                 _isInitialized.value = true // Mark as initialized again
                 _isMediaScanning.value = false // Hide media scan loader
+                _isLibraryRefreshing.value = false // Reset pull-to-refresh state
                 
                 // Ensure MediaScanLoader doesn't get stuck by dispatching a completion event
                 // This is a safety measure for cases where the StateFlow updates might not trigger UI properly
@@ -1517,6 +1616,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         Log.d(TAG, "Cancelling scan...")
         scanJob?.cancel()
         _isMediaScanning.value = false
+        _isLibraryRefreshing.value = false
         _isInitialized.value = true
     }
 
@@ -1588,6 +1688,9 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
             _albums.value = repository.loadAlbums()
             _artists.value = repository.loadArtists()
             
+            // Persist updated metadata to disk cache
+            repository.persistSongCacheToDisk()
+            
             Log.d(TAG, "Updated song metadata: ${updatedSong.title} by ${updatedSong.artist}")
         }
     }
@@ -1657,6 +1760,16 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                 
                 // Update the song using existing function
                 updateCurrentSongMetadata(updatedSong)
+                
+                // Update genre cache so it persists across library rescans
+                if (genre.isNotBlank()) {
+                    try {
+                        val genrePrefs = context.getSharedPreferences("genre_cache", android.content.Context.MODE_PRIVATE)
+                        genrePrefs.edit().putString("genre_${song.id}", genre).apply()
+                    } catch (e: Exception) {
+                        Log.w(TAG, "Failed to update genre cache for song ${song.id}", e)
+                    }
+                }
                 
                 // Handle artwork saving if provided
                 if (artworkUri != null && success) {
@@ -1833,6 +1946,83 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
             }
             _pendingWriteRequest.value = null
             Log.d(TAG, "Cancelled pending metadata write request")
+        }
+    }
+
+    /**
+     * Batch-edits metadata for multiple songs at once.
+     * Only enabled fields are applied; disabled fields are left untouched.
+     */
+    fun batchEditMetadata(
+        songs: List<Song>,
+        artist: String?,
+        album: String?,
+        genre: String?,
+        year: Int?,
+        onProgress: (Int, Int) -> Unit,
+        onComplete: (successCount: Int, failCount: Int) -> Unit
+    ) {
+        viewModelScope.launch {
+            val context = getApplication<Application>().applicationContext
+            var successCount = 0
+            var failCount = 0
+
+            songs.forEachIndexed { index, song ->
+                try {
+                    val newArtist = artist ?: song.artist
+                    val newAlbum = album ?: song.album
+                    val newGenre = genre ?: (song.genre ?: "")
+                    val newYear = year ?: song.year
+
+                    val success = try {
+                        withContext(Dispatchers.IO) {
+                            chromahub.rhythm.app.util.MediaUtils.updateSongMetadata(
+                                context = context,
+                                song = song,
+                                newTitle = song.title,
+                                newArtist = newArtist,
+                                newAlbum = newAlbum,
+                                newGenre = newGenre,
+                                newYear = newYear,
+                                newTrackNumber = song.trackNumber
+                            )
+                        }
+                    } catch (e: chromahub.rhythm.app.util.RecoverableSecurityExceptionWrapper) {
+                        // On Android 11+, file write requires per-file user permission (scoped storage).
+                        // MediaStore was already updated in updateSongMetadata before the exception.
+                        // Count as success so batch operations don't always report failure.
+                        Log.w(TAG, "Batch edit: scoped storage restriction for ${song.title}, MediaStore updated only")
+                        true
+                    }
+
+                    val updatedSong = song.copy(
+                        artist = newArtist,
+                        album = newAlbum,
+                        genre = newGenre,
+                        year = newYear
+                    )
+                    updateCurrentSongMetadata(updatedSong)
+
+                    if (newGenre.isNotBlank()) {
+                        try {
+                            val genrePrefs = context.getSharedPreferences("genre_cache", android.content.Context.MODE_PRIVATE)
+                            genrePrefs.edit().putString("genre_${song.id}", newGenre).apply()
+                        } catch (_: Exception) {}
+                    }
+
+                    if (success) successCount++ else failCount++
+                } catch (e: Exception) {
+                    Log.e(TAG, "Batch edit failed for ${song.title}", e)
+                    failCount++
+                }
+                withContext(Dispatchers.Main) {
+                    onProgress(index + 1, songs.size)
+                }
+            }
+
+            withContext(Dispatchers.Main) {
+                onComplete(successCount, failCount)
+            }
         }
     }
     

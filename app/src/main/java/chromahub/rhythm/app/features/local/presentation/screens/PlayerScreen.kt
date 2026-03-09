@@ -519,18 +519,17 @@ fun PlayerScreen(
         }
     }
 
-    // Dynamic sizing based on screen dimensions - improved for small screens
-    val albumArtSize = when {
+    // Dynamic sizing based on screen dimensions - used for artwork responsiveness
+    val albumArtFraction = when {
         isExtraSmallWidth -> {
-            // Extra small screens: maximize artwork by reducing spacing
-            if (isCompactHeight) 0.60f else 0.65f
+            if (isCompactHeight) 0.82f else 0.90f
         }
         isCompactWidth -> {
-            if (isCompactHeight) 0.57f else 0.62f
+            if (isCompactHeight) 0.85f else 0.92f
         }
-        isCompactHeight -> 0.55f
-        isLargeHeight -> 0.65f
-        else -> 0.6f
+        isCompactHeight -> 0.88f
+        isLargeHeight -> 1.0f
+        else -> 0.95f
     }
 
     // Toggle between album art and lyrics with improved state management
@@ -829,6 +828,10 @@ fun PlayerScreen(
             onNavigateToSettings = {
                 showDeviceOutputSheet = false
                 navController.navigate(Screen.TunerQueuePlayback.route)
+            },
+            onNavigateToEqualizer = {
+                showDeviceOutputSheet = false
+                navController.navigate(Screen.Equalizer.route)
             },
             sheetState = deviceOutputSheetState
         )
@@ -1385,7 +1388,7 @@ fun PlayerScreen(
                         
                         Box(
                             modifier = Modifier
-                                .fillMaxWidth(1.0f) // Enlarged album art to touch screen edges
+                                .fillMaxWidth(if (isTablet) 1.0f else albumArtFraction) // Responsive size based on screen dimensions
                                 .aspectRatio(1f)
                                 .graphicsLayer {
                                     // Album art scales and shrinks during swipe (mini-player effect)
@@ -2319,10 +2322,10 @@ fun PlayerScreen(
                             }
                         }
 
-                        Spacer(modifier = Modifier.height(if (isTablet) 20.dp else 12.dp))
+                        Spacer(modifier = Modifier.height(if (isTablet) 20.dp else if (isCompactHeight) 6.dp else 12.dp))
                         
                         // Add spacing below progress bar on both views
-                        Spacer(modifier = Modifier.height(if (isTablet) 12.dp else 8.dp))
+                        Spacer(modifier = Modifier.height(if (isTablet) 12.dp else if (isCompactHeight) 4.dp else 8.dp))
 
                         // Main player controls with Expressive Material 3 button group
                         // Full width container with same padding as toggle buttons
@@ -2377,6 +2380,7 @@ fun PlayerScreen(
                             },
                             isExtraSmallWidth = isExtraSmallWidth,
                             isCompactWidth = isCompactWidth,
+                            isCompactHeight = isCompactHeight,
                             isLoading = showLoaderInPlayPauseButton,
                             modifier = Modifier.padding(
                                 horizontal = when {
@@ -2388,7 +2392,7 @@ fun PlayerScreen(
                             )
                         )
 
-                        Spacer(modifier = Modifier.height(if (isTablet) 28.dp else if (isExtraSmallWidth) 20.dp else 28.dp))
+                        Spacer(modifier = Modifier.height(if (isTablet) 28.dp else if (isCompactHeight) 12.dp else if (isExtraSmallWidth) 20.dp else 28.dp))
 
                         // Secondary action buttons with Expressive Toggle Button Group
                         chromahub.rhythm.app.shared.presentation.components.common.ExpressiveToggleButtonGroup(
@@ -2432,10 +2436,12 @@ fun PlayerScreen(
                                     else -> 20.dp
                                 }
                             ),
-                            isDarkTheme = isDarkTheme
+                            isDarkTheme = isDarkTheme,
+                            isCompactHeight = isCompactHeight,
+                            isCompactWidth = isCompactWidth
                         )
 
-                        Spacer(modifier = Modifier.height(if (isExtraSmallWidth) 12.dp else 20.dp))
+                        Spacer(modifier = Modifier.height(if (isCompactHeight) 8.dp else if (isExtraSmallWidth) 12.dp else 20.dp))
 
                         // Arrow button to show chips or chips themselves (hidden in compact mode)
                         if (!isCompactWidth) {
@@ -3359,7 +3365,7 @@ fun PlayerScreen(
                                 tonalElevation = 0.dp,
                                 modifier = if (isCompactWidth) {
                                     Modifier
-                                        .height(if (isCompactHeight) 64.dp else 68.dp)
+                                        .height(if (isCompactHeight) 42.dp else 56.dp)
                                         .weight(1f)
                                 } else {
                                     Modifier.weight(1f)
@@ -3381,7 +3387,7 @@ fun PlayerScreen(
                                         Surface(
                                             shape = CircleShape,
                                             color = MaterialTheme.colorScheme.secondary,
-                                            modifier = Modifier.size(if (isCompactHeight) 32.dp else 36.dp)
+                                            modifier = Modifier.size(if (isCompactHeight) 28.dp else 34.dp)
                                         ) {
                                             Box(
                                                 contentAlignment = Alignment.Center,
@@ -3391,17 +3397,10 @@ fun PlayerScreen(
                                                     imageVector = icon,
                                                     contentDescription = null,
                                                     tint = MaterialTheme.colorScheme.onSecondary,
-                                                    modifier = Modifier.size(if (isCompactHeight) 18.dp else 20.dp)
+                                                    modifier = Modifier.size(if (isCompactHeight) 16.dp else 18.dp)
                                                 )
                                             }
                                         }
-                                        Spacer(modifier = Modifier.height(4.dp))
-                                        Text(
-                                            text = "Output",
-                                            style = MaterialTheme.typography.labelSmall,
-                                            color = MaterialTheme.colorScheme.onSecondaryContainer,
-                                            maxLines = 1
-                                        )
                                     }
                                 } else {
                                 Row(
@@ -3501,8 +3500,8 @@ fun PlayerScreen(
                                         shape = RoundedCornerShape(28.dp),
                                         color = MaterialTheme.colorScheme.tertiaryContainer,
                                         modifier = Modifier
-                                            .width(if (isExtraSmallWidth) 52.dp else 60.dp)
-                                            .height(if (isCompactHeight) 64.dp else 68.dp)
+                                            .width(if (isExtraSmallWidth) 36.dp else 44.dp)
+                                            .height(if (isCompactHeight) 42.dp else 56.dp)
                                     ) {
                                         Box(
                                             contentAlignment = Alignment.Center,
@@ -3512,7 +3511,7 @@ fun PlayerScreen(
                                                 imageVector = Icons.Default.KeyboardArrowUp,
                                                 contentDescription = "Show actions",
                                                 tint = MaterialTheme.colorScheme.onTertiaryContainer,
-                                                modifier = Modifier.size(if (isCompactHeight) 22.dp else 24.dp)
+                                                modifier = Modifier.size(if (isCompactHeight) 20.dp else 22.dp)
                                             )
                                         }
                                     }
@@ -3538,7 +3537,7 @@ fun PlayerScreen(
                                 tonalElevation = 0.dp,
                                 modifier = if (isCompactWidth) {
                                     Modifier
-                                        .height(if (isCompactHeight) 64.dp else 68.dp)
+                                        .height(if (isCompactHeight) 42.dp else 56.dp)
                                         .weight(1f)
                                 } else {
                                     Modifier.weight(1f)
@@ -3554,7 +3553,7 @@ fun PlayerScreen(
                                         Surface(
                                             shape = CircleShape,
                                             color = MaterialTheme.colorScheme.secondary,
-                                            modifier = Modifier.size(if (isCompactHeight) 32.dp else 36.dp)
+                                            modifier = Modifier.size(if (isCompactHeight) 28.dp else 34.dp)
                                         ) {
                                             Box(
                                                 contentAlignment = Alignment.Center,
@@ -3564,17 +3563,10 @@ fun PlayerScreen(
                                                     imageVector = RhythmIcons.Queue,
                                                     contentDescription = null,
                                                     tint = MaterialTheme.colorScheme.onSecondary,
-                                                    modifier = Modifier.size(if (isCompactHeight) 18.dp else 20.dp)
+                                                    modifier = Modifier.size(if (isCompactHeight) 16.dp else 18.dp)
                                                 )
                                             }
                                         }
-                                        Spacer(modifier = Modifier.height(4.dp))
-                                        Text(
-                                            text = context.getString(R.string.player_queue),
-                                            style = MaterialTheme.typography.labelSmall,
-                                            color = MaterialTheme.colorScheme.onSecondaryContainer,
-                                            maxLines = 1
-                                        )
                                     }
                                 } else {
                                 Row(
@@ -3925,7 +3917,7 @@ fun PlaybackSpeedDialog(
                             HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
                         },
                         valueRange = minSpeed..maxSpeed,
-                        steps = 10,
+                        steps = 54,
                         colors = SliderDefaults.colors(
                             thumbColor = MaterialTheme.colorScheme.primary,
                             activeTrackColor = MaterialTheme.colorScheme.primary,
@@ -4104,7 +4096,7 @@ fun PlaybackPitchDialog(
                             HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
                         },
                         valueRange = minPitch..maxPitch,
-                        steps = 10,
+                        steps = 54,
                         colors = SliderDefaults.colors(
                             thumbColor = MaterialTheme.colorScheme.primary,
                             activeTrackColor = MaterialTheme.colorScheme.primary,

@@ -58,6 +58,8 @@ import chromahub.rhythm.app.util.EnhancedLyricLine
 import chromahub.rhythm.app.util.EnhancedWord
 // AppleMusicLyricsParser import removed - kept for future re-implementation
 import android.content.SharedPreferences
+import chromahub.rhythm.app.features.local.data.database.RhythmDatabase
+import chromahub.rhythm.app.features.local.data.database.entity.SongEntity
 
 /**
  * Scan progress data class for real-time updates
@@ -130,6 +132,232 @@ class MusicRepository(context: Context) {
     private var cacheTimestamp: Long = 0
     private val CACHE_VALIDITY_MS = 60_000 // 1 minute
     
+    // Disk-based song cache for instant library restore across app restarts
+    private val DISK_CACHE_FILE = "song_library_cache.json"
+    private val gson by lazy { Gson() }
+    
+    // Room database for alternative storage backend
+    private val roomDb by lazy { RhythmDatabase.getInstance(context) }
+    private val songDao by lazy { roomDb.songDao() }
+    
+    /**
+     * Lightweight JSON-serializable representation of a Song for disk cache.
+     */
+    private data class SongCacheEntry(
+        val id: String,
+        val title: String,
+        val artist: String,
+        val album: String,
+        val albumId: String,
+        val duration: Long,
+        val uri: String,
+        val artworkUri: String?,
+        val trackNumber: Int,
+        val year: Int,
+        val genre: String?,
+        val dateAdded: Long,
+        val albumArtist: String?,
+        val bitrate: Int?,
+        val sampleRate: Int?,
+        val channels: Int?,
+        val codec: String?
+    )
+    
+    private data class SongCacheWrapper(
+        val version: Int = 1,
+        val timestamp: Long,
+        val songs: List<SongCacheEntry>
+    )
+    
+    private fun saveSongsToDisk(songs: List<Song>) {
+        try {
+            val entries = songs.map { song ->
+                SongCacheEntry(
+                    id = song.id,
+                    title = song.title,
+                    artist = song.artist,
+                    album = song.album,
+                    albumId = song.albumId,
+                    duration = song.duration,
+                    uri = song.uri.toString(),
+                    artworkUri = song.artworkUri?.toString(),
+                    trackNumber = song.trackNumber,
+                    year = song.year,
+                    genre = song.genre,
+                    dateAdded = song.dateAdded,
+                    albumArtist = song.albumArtist,
+                    bitrate = song.bitrate,
+                    sampleRate = song.sampleRate,
+                    channels = song.channels,
+                    codec = song.codec
+                )
+            }
+            val wrapper = SongCacheWrapper(timestamp = System.currentTimeMillis(), songs = entries)
+            val json = gson.toJson(wrapper)
+            val file = File(context.filesDir, DISK_CACHE_FILE)
+            file.writeText(json)
+            Log.d(TAG, "Saved ${songs.size} songs to disk cache (${file.length() / 1024}KB)")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to save song cache to disk", e)
+        }
+    }
+    
+    /**
+     * Persists the current in-memory song cache to disk.
+     * Uses JSON or Room depending on the storage mode setting.
+     * Call after background processing (metadata extraction, genre detection, artwork extraction)
+     * so that results survive app restarts.
+     */
+    fun persistSongCacheToDisk() {
+        cachedSongs?.let { songs ->
+            val storageMode = AppSettings.getInstance(context).storageMode.value
+            if (storageMode == "room") {
+                repositoryScope.launch {
+                    saveSongsToRoom(songs)
+                }
+            } else {
+                saveSongsToDisk(songs)
+            }
+        }
+    }
+
+    /**
+     * Migrates song data from one storage backend to the other.
+     * Reads from the source, writes to the target, then optionally clears the source.
+     * Call when storageMode changes in settings.
+     */
+    suspend fun migrateStorageMode(newMode: String) = withContext(Dispatchers.IO) {
+        val songs = cachedSongs ?: when (newMode) {
+            "room" -> loadSongsFromDisk()  // Migrating to Room → read from JSON
+            "json" -> loadSongsFromRoom()  // Migrating to JSON → read from Room
+            else -> null
+        }
+        if (songs != null && songs.isNotEmpty()) {
+            when (newMode) {
+                "room" -> {
+                    saveSongsToRoom(songs)
+                    Log.d(TAG, "Migrated ${songs.size} songs from JSON to Room")
+                }
+                "json" -> {
+                    saveSongsToDisk(songs)
+                    Log.d(TAG, "Migrated ${songs.size} songs from Room to JSON")
+                }
+            }
+        } else {
+            Log.w(TAG, "No songs to migrate for mode change to $newMode")
+        }
+    }
+    
+    private suspend fun saveSongsToRoom(songs: List<Song>) {
+        try {
+            val entities = songs.map { song ->
+                SongEntity(
+                    id = song.id,
+                    title = song.title,
+                    artist = song.artist,
+                    album = song.album,
+                    albumId = song.albumId,
+                    duration = song.duration,
+                    uri = song.uri.toString(),
+                    artworkUri = song.artworkUri?.toString(),
+                    trackNumber = song.trackNumber,
+                    year = song.year,
+                    genre = song.genre,
+                    dateAdded = song.dateAdded,
+                    albumArtist = song.albumArtist,
+                    bitrate = song.bitrate,
+                    sampleRate = song.sampleRate,
+                    channels = song.channels,
+                    codec = song.codec
+                )
+            }
+            songDao.replaceAll(entities)
+            Log.d(TAG, "Saved ${songs.size} songs to Room database")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to save songs to Room database", e)
+        }
+    }
+    
+    private suspend fun loadSongsFromRoom(): List<Song>? {
+        return try {
+            val entities = songDao.getAllSongs()
+            if (entities.isEmpty()) return null
+            val songs = entities.mapNotNull { entity ->
+                try {
+                    Song(
+                        id = entity.id,
+                        title = entity.title,
+                        artist = entity.artist,
+                        album = entity.album,
+                        albumId = entity.albumId,
+                        duration = entity.duration,
+                        uri = Uri.parse(entity.uri),
+                        artworkUri = entity.artworkUri?.let { Uri.parse(it) },
+                        trackNumber = entity.trackNumber,
+                        year = entity.year,
+                        genre = entity.genre,
+                        dateAdded = entity.dateAdded,
+                        albumArtist = entity.albumArtist,
+                        bitrate = entity.bitrate,
+                        sampleRate = entity.sampleRate,
+                        channels = entity.channels,
+                        codec = entity.codec
+                    )
+                } catch (e: Exception) {
+                    Log.w(TAG, "Skipping corrupted Room entry: ${entity.id}", e)
+                    null
+                }
+            }
+            Log.d(TAG, "Loaded ${songs.size} songs from Room database")
+            songs
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to load songs from Room database", e)
+            null
+        }
+    }
+    
+    private fun loadSongsFromDisk(): List<Song>? {
+        return try {
+            val file = File(context.filesDir, DISK_CACHE_FILE)
+            if (!file.exists()) return null
+            
+            val json = file.readText()
+            val wrapper = gson.fromJson(json, SongCacheWrapper::class.java) ?: return null
+            
+            val songs = wrapper.songs.mapNotNull { entry ->
+                try {
+                    Song(
+                        id = entry.id,
+                        title = entry.title,
+                        artist = entry.artist,
+                        album = entry.album,
+                        albumId = entry.albumId,
+                        duration = entry.duration,
+                        uri = Uri.parse(entry.uri),
+                        artworkUri = entry.artworkUri?.let { Uri.parse(it) },
+                        trackNumber = entry.trackNumber,
+                        year = entry.year,
+                        genre = entry.genre,
+                        dateAdded = entry.dateAdded,
+                        albumArtist = entry.albumArtist,
+                        bitrate = entry.bitrate,
+                        sampleRate = entry.sampleRate,
+                        channels = entry.channels,
+                        codec = entry.codec
+                    )
+                } catch (e: Exception) {
+                    Log.w(TAG, "Skipping corrupted cache entry: ${entry.id}", e)
+                    null
+                }
+            }
+            Log.d(TAG, "Loaded ${songs.size} songs from disk cache (age: ${(System.currentTimeMillis() - wrapper.timestamp) / 1000}s)")
+            songs
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to load song cache from disk", e)
+            null
+        }
+    }
+
     // ContentObserver for automatic updates
     private var mediaStoreObserver: ContentObserver? = null
     private var onMediaStoreChangeCallback: (() -> Unit)? = null
@@ -281,12 +509,28 @@ class MusicRepository(context: Context) {
         minimumBitrate: Int = 0,
         minimumDuration: Long = 0L
     ): List<Song> = withContext(Dispatchers.IO) {
-        // Check cache first
+        // Check in-memory cache first
         if (!forceRefresh && 
             cachedSongs != null && 
             System.currentTimeMillis() - cacheTimestamp < CACHE_VALIDITY_MS) {
             Log.d(TAG, "Returning cached songs (${cachedSongs!!.size})")
             return@withContext cachedSongs!!
+        }
+        
+        // On cold start (no in-memory cache), try loading from disk/Room cache
+        if (!forceRefresh && cachedSongs == null) {
+            val storageMode = AppSettings.getInstance(context).storageMode.value
+            val diskCached = if (storageMode == "room") {
+                loadSongsFromRoom()
+            } else {
+                loadSongsFromDisk()
+            }
+            if (diskCached != null && diskCached.isNotEmpty()) {
+                cachedSongs = diskCached
+                cacheTimestamp = System.currentTimeMillis()
+                Log.d(TAG, "Restored ${diskCached.size} songs from disk cache")
+                return@withContext diskCached
+            }
         }
         
         val startTime = System.currentTimeMillis()
@@ -309,7 +553,7 @@ class MusicRepository(context: Context) {
         
         Log.d(TAG, "Using MediaStore URI: $collection")
 
-        val projection = arrayOf(
+        val projection = mutableListOf(
             MediaStore.Audio.Media._ID,
             MediaStore.Audio.Media.TITLE,
             MediaStore.Audio.Media.ARTIST,
@@ -320,9 +564,13 @@ class MusicRepository(context: Context) {
             MediaStore.Audio.Media.YEAR,
             MediaStore.Audio.Media.DATE_ADDED,
             MediaStore.Audio.Media.SIZE,
-            MediaStore.Audio.Media.GENRE,
             MediaStore.Audio.Media.DATA // For path-based duplicate detection
-        )
+        ).apply {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                add(MediaStore.Audio.Media.GENRE)
+                add(MediaStore.Audio.Media.ALBUM_ARTIST)
+            }
+        }.toTypedArray()
 
         // Improved selection to filter out very short files and invalid entries
         val selection = "${MediaStore.Audio.Media.IS_MUSIC} = 1 AND ${MediaStore.Audio.Media.DURATION} > 10000"
@@ -350,6 +598,27 @@ class MusicRepository(context: Context) {
                     Log.w(TAG, "1. Storage permission is granted")
                     Log.w(TAG, "2. Files are visible in MediaStore (try MediaScanner)")
                     Log.w(TAG, "3. Files meet criteria: IS_MUSIC=1 AND DURATION>10000ms")
+                    // On Android 8-10, MediaStore indexing can be slow or incomplete on first query.
+                    // Retry once after a short delay to give MediaStore time to index.
+                    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+                        Log.d(TAG, "Android 8/9 detected: retrying MediaStore query after 3s delay")
+                        delay(3000L)
+                        val retryCount = context.contentResolver.query(
+                            collection, projection, selection, null, sortOrder
+                        )?.use { it.count } ?: 0
+                        if (retryCount == 0) {
+                            Log.w(TAG, "Retry also found 0 files — library is empty or MediaStore not yet indexed")
+                        } else {
+                            Log.d(TAG, "Retry found $retryCount files — re-running full scan")
+                            // Recursive call: MediaStore is now ready
+                            return@withContext loadSongs(
+                                forceRefresh = true,
+                                allowedFormats = allowedFormats,
+                                minimumBitrate = minimumBitrate,
+                                minimumDuration = minimumDuration
+                            )
+                        }
+                    }
                     return@withContext emptyList()
                 }
 
@@ -384,10 +653,12 @@ class MusicRepository(context: Context) {
                 var processedCount = 0
                 val batchSize = 100
                 val pathColumnIndex = cursor.getColumnIndex(MediaStore.Audio.Media.DATA)
+                // Pre-load AppSettings once to avoid per-song getInstance calls (performance fix for Android 8-10)
+                val appSettings = AppSettings.getInstance(context)
                 
                 while (cursor.moveToNext()) {
                     try {
-                        val song = createSongFromCursor(cursor, columnIndices)
+                        val song = createSongFromCursor(cursor, columnIndices, appSettings)
                         if (song != null) {
                             // Duplicate detection by ID
                             if (seenIds.contains(song.id)) {
@@ -472,6 +743,9 @@ class MusicRepository(context: Context) {
                 cachedSongs = songs
                 cacheTimestamp = System.currentTimeMillis()
                 
+                // Persist to disk for instant restore on next app launch (respects storageMode)
+                persistSongCacheToDisk()
+                
                 // Update scan progress to complete
                 _scanProgress.value = ScanProgress(songs.size, count, "Complete", duration)
                 
@@ -511,7 +785,7 @@ class MusicRepository(context: Context) {
             MediaStore.Audio.Media.EXTERNAL_CONTENT_URI
         }
 
-        val projection = arrayOf(
+        val projection = mutableListOf(
             MediaStore.Audio.Media._ID,
             MediaStore.Audio.Media.TITLE,
             MediaStore.Audio.Media.ARTIST,
@@ -521,9 +795,13 @@ class MusicRepository(context: Context) {
             MediaStore.Audio.Media.TRACK,
             MediaStore.Audio.Media.YEAR,
             MediaStore.Audio.Media.DATE_ADDED,
-            MediaStore.Audio.Media.SIZE,
-            MediaStore.Audio.Media.GENRE
-        )
+            MediaStore.Audio.Media.SIZE
+        ).apply {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                add(MediaStore.Audio.Media.GENRE)
+                add(MediaStore.Audio.Media.ALBUM_ARTIST)
+            }
+        }.toTypedArray()
 
         // Only scan songs added after last scan
         val selection = "${MediaStore.Audio.Media.IS_MUSIC} = 1 AND ${MediaStore.Audio.Media.DURATION} > 10000 AND ${MediaStore.Audio.Media.DATE_ADDED} > ?"
@@ -569,10 +847,12 @@ class MusicRepository(context: Context) {
 
                 var processedCount = 0
                 val pathColumnIndex = cursor.getColumnIndex(MediaStore.Audio.Media.DATA)
+                // Pre-load AppSettings once to avoid per-song getInstance calls (performance fix for Android 8-10)
+                val appSettings = AppSettings.getInstance(context)
                 
                 while (cursor.moveToNext()) {
                     try {
-                        val song = createSongFromCursor(cursor, columnIndices)
+                        val song = createSongFromCursor(cursor, columnIndices, appSettings)
                         if (song != null) {
                             // Format filtering
                             if (allowedFormats != null && pathColumnIndex >= 0) {
@@ -632,7 +912,7 @@ class MusicRepository(context: Context) {
         val albumArtist: Int // May be -1 if not available on older devices
     )
     
-    private fun createSongFromCursor(cursor: android.database.Cursor, indices: ColumnIndices): Song? {
+    private fun createSongFromCursor(cursor: android.database.Cursor, indices: ColumnIndices, appSettings: AppSettings = AppSettings.getInstance(context)): Song? {
         return try {
             val id = cursor.getLong(indices.id)
             val title = cursor.getString(indices.title)?.trim() ?: return null
@@ -674,13 +954,39 @@ class MusicRepository(context: Context) {
                 id
             )
 
-            // Always use MediaStore album art URI during scan to avoid blocking I/O.
-            // When ignoreMediaStoreCovers or losslessArtwork is enabled, Coil's image loader
-            // will handle the embedded-art extraction lazily at display time.
+            // Use MediaStore album art URI by default.
+            // When ignoreMediaStoreCovers is enabled, prefer previously cached embedded art
+            // so songs show unique per-track artwork instead of shared album art.
             val albumArtUri = ContentUris.withAppendedId(
                 Uri.parse("content://media/external/audio/albumart"),
                 albumId
             )
+            val useEmbeddedArt = appSettings.ignoreMediaStoreCovers.value || appSettings.losslessArtwork.value
+            val effectiveArtUri = if (useEmbeddedArt) {
+                // Check if embedded art was previously extracted to cache
+                val lossless = appSettings.losslessArtwork.value
+                val prefix = if (lossless) "embedded_art_lossless_" else "embedded_art_"
+                val cachedFile = if (lossless) {
+                    // Try both extensions for lossless
+                    val jpg = java.io.File(context.cacheDir, "${prefix}${contentUri.hashCode()}.jpg")
+                    val png = java.io.File(context.cacheDir, "${prefix}${contentUri.hashCode()}.png")
+                    when {
+                        jpg.exists() -> jpg
+                        png.exists() -> png
+                        else -> null
+                    }
+                } else {
+                    val f = java.io.File(context.cacheDir, "${prefix}${contentUri.hashCode()}.jpg")
+                    if (f.exists()) f else null
+                }
+                if (cachedFile != null) {
+                    Uri.fromFile(cachedFile)
+                } else {
+                    albumArtUri // Fallback; background task will extract later
+                }
+            } else {
+                albumArtUri
+            }
 
             // Load cached genre if available
             val cachedGenre = try {
@@ -704,11 +1010,11 @@ class MusicRepository(context: Context) {
                 albumId = albumId.toString(),
                 duration = duration,
                 uri = contentUri,
-                artworkUri = albumArtUri,
+                artworkUri = effectiveArtUri,
                 trackNumber = track,
                 year = year,
                 dateAdded = dateAdded,
-                genre = cachedGenre, // Use cached genre if available
+                genre = cachedGenre ?: genreId, // Use cached genre first, then MediaStore genre
                 albumArtist = albumArtist,
                 bitrate = null, // Will be extracted lazily when needed
                 sampleRate = null,
@@ -877,6 +1183,8 @@ class MusicRepository(context: Context) {
      * This column may contain either a genre ID or genre name depending on Android version
      */
     private fun getGenreFromMediaStoreColumn(songId: Int): String? {
+        // GENRE column only available on API 30+ (Android 11)
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return null
         return try {
             val projection = arrayOf(MediaStore.Audio.Media.GENRE)
             val selection = "${MediaStore.Audio.Media._ID} = ?"
@@ -3738,9 +4046,75 @@ class MusicRepository(context: Context) {
             synchronized(lyricsCache) {
                 lyricsCache.clear()
             }
-            Log.d(TAG, "Cleared all in-memory caches (artist images, album images, lyrics)")
+            // Also clear the song in-memory cache
+            cachedSongs = null
+            cacheTimestamp = 0L
+            Log.d(TAG, "Cleared all in-memory caches (artist images, album images, lyrics, songs)")
         } catch (e: Exception) {
             Log.e(TAG, "Error clearing in-memory caches", e)
+        }
+    }
+    
+    /**
+     * Clears all song cache data from both JSON disk file and Room database.
+     * Call this when the user explicitly clears cache from settings.
+     */
+    fun clearSongCacheData() {
+        try {
+            // Clear JSON disk cache
+            val file = File(context.filesDir, DISK_CACHE_FILE)
+            if (file.exists()) {
+                file.delete()
+                Log.d(TAG, "Deleted JSON song cache file")
+            }
+            // Clear Room DB
+            repositoryScope.launch {
+                try {
+                    songDao.deleteAll()
+                    Log.d(TAG, "Cleared Room song database")
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error clearing Room database", e)
+                }
+            }
+            // Clear in-memory song cache
+            cachedSongs = null
+            cacheTimestamp = 0L
+            Log.d(TAG, "Cleared all song cache data (JSON, Room, in-memory)")
+        } catch (e: Exception) {
+            Log.e(TAG, "Error clearing song cache data", e)
+        }
+    }
+
+    /**
+     * Returns the number of songs stored in the Room database.
+     */
+    suspend fun getRoomSongCount(): Int = songDao.getCount()
+
+    /**
+     * Returns the number of songs stored in the JSON disk cache.
+     */
+    fun getJsonSongCount(): Int {
+        return try {
+            val file = File(context.filesDir, DISK_CACHE_FILE)
+            if (!file.exists()) return 0
+            val json = file.readText()
+            val wrapper = gson.fromJson(json, SongCacheWrapper::class.java)
+            wrapper?.songs?.size ?: 0
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to get JSON song count", e)
+            0
+        }
+    }
+
+    /**
+     * Returns the size in bytes of the JSON disk cache file.
+     */
+    fun getJsonFileSize(): Long {
+        return try {
+            val file = File(context.filesDir, DISK_CACHE_FILE)
+            if (file.exists()) file.length() else 0L
+        } catch (e: Exception) {
+            0L
         }
     }
     

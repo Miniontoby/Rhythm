@@ -109,6 +109,7 @@ fun PlaybackBottomSheet(
     onDismiss: () -> Unit,
     appSettings: AppSettings,
     onNavigateToSettings: (() -> Unit)? = null,
+    onNavigateToEqualizer: (() -> Unit)? = null,
     sheetState: SheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 ) {
     val context = LocalContext.current
@@ -128,6 +129,13 @@ fun PlaybackBottomSheet(
     val useSystemVolume by appSettings.useSystemVolume.collectAsState()
     val crossfadeEnabled by appSettings.crossfade.collectAsState()
     val crossfadeDuration by appSettings.crossfadeDuration.collectAsState()
+    val audioNormalization by appSettings.audioNormalization.collectAsState()
+    val replayGain by appSettings.replayGain.collectAsState()
+    val equalizerEnabled by appSettings.equalizerEnabled.collectAsState()
+    val bassBoostEnabled by appSettings.bassBoostEnabled.collectAsState()
+    val bassBoostStrength by appSettings.bassBoostStrength.collectAsState()
+    val virtualizerEnabled by appSettings.virtualizerEnabled.collectAsState()
+    val virtualizerStrength by appSettings.virtualizerStrength.collectAsState()
     
     val contentAlpha by animateFloatAsState(
         targetValue = if (showContent) 1f else 0f,
@@ -272,6 +280,43 @@ fun PlaybackBottomSheet(
                             onCrossfadeEnabledChange = { appSettings.setCrossfade(it) },
                             onCrossfadeDurationChange = { appSettings.setCrossfadeDuration(it) },
                             onNavigateToSettings = onNavigateToSettings,
+                            haptics = haptics,
+                            context = context
+                        )
+                    }
+                }
+                
+                // Audio Effects Section
+                item {
+                    AnimateIn {
+                        AudioEffectsCard(
+                            audioNormalization = audioNormalization,
+                            replayGain = replayGain,
+                            equalizerEnabled = equalizerEnabled,
+                            bassBoostEnabled = bassBoostEnabled,
+                            bassBoostStrength = bassBoostStrength,
+                            virtualizerEnabled = virtualizerEnabled,
+                            virtualizerStrength = virtualizerStrength,
+                            onAudioNormalizationChange = { appSettings.setAudioNormalization(it) },
+                            onReplayGainChange = { appSettings.setReplayGain(it) },
+                            onEqualizerEnabledChange = { musicViewModel.setEqualizerEnabled(it) },
+                            onBassBoostEnabledChange = { enabled ->
+                                appSettings.setBassBoostEnabled(enabled)
+                                musicViewModel.setBassBoost(enabled, bassBoostStrength.toShort())
+                            },
+                            onBassBoostStrengthChange = { strength ->
+                                appSettings.setBassBoostStrength(strength)
+                                musicViewModel.setBassBoost(bassBoostEnabled, strength.toShort())
+                            },
+                            onVirtualizerEnabledChange = { enabled ->
+                                appSettings.setVirtualizerEnabled(enabled)
+                                musicViewModel.setVirtualizer(enabled, virtualizerStrength.toShort())
+                            },
+                            onVirtualizerStrengthChange = { strength ->
+                                appSettings.setVirtualizerStrength(strength)
+                                musicViewModel.setVirtualizer(virtualizerEnabled, strength.toShort())
+                            },
+                            onNavigateToEqualizer = onNavigateToEqualizer,
                             haptics = haptics,
                             context = context
                         )
@@ -969,7 +1014,7 @@ private fun PlaybackSpeedCard(
                         onSpeedChange(selectedSpeed)
                     },
                     valueRange = 0.25f..3.0f,
-                    steps = 10,
+                    steps = 54,
                     colors = SliderDefaults.colors(
                         thumbColor = MaterialTheme.colorScheme.primary,
                         activeTrackColor = MaterialTheme.colorScheme.primary,
@@ -1281,7 +1326,7 @@ private fun PlaybackPitchCard(
                         onPitchChange(selectedPitch)
                     },
                     valueRange = 0.25f..3.0f,
-                    steps = 10,
+                    steps = 54,
                     colors = SliderDefaults.colors(
                         thumbColor = MaterialTheme.colorScheme.primary,
                         activeTrackColor = MaterialTheme.colorScheme.primary,
@@ -1475,6 +1520,239 @@ private fun AnimateIn(
         )
     ) {
         content()
+    }
+}
+
+@Composable
+private fun AudioEffectsCard(
+    audioNormalization: Boolean,
+    replayGain: Boolean,
+    equalizerEnabled: Boolean,
+    bassBoostEnabled: Boolean,
+    bassBoostStrength: Int,
+    virtualizerEnabled: Boolean,
+    virtualizerStrength: Int,
+    onAudioNormalizationChange: (Boolean) -> Unit,
+    onReplayGainChange: (Boolean) -> Unit,
+    onEqualizerEnabledChange: (Boolean) -> Unit,
+    onBassBoostEnabledChange: (Boolean) -> Unit,
+    onBassBoostStrengthChange: (Int) -> Unit,
+    onVirtualizerEnabledChange: (Boolean) -> Unit,
+    onVirtualizerStrengthChange: (Int) -> Unit,
+    onNavigateToEqualizer: (() -> Unit)? = null,
+    haptics: androidx.compose.ui.hapticfeedback.HapticFeedback,
+    context: Context
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 24.dp),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(24.dp)
+        ) {
+            // Header
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = RhythmIcons.Equalizer,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(24.dp)
+                )
+                Spacer(modifier = Modifier.width(12.dp))
+                Text(
+                    text = context.getString(R.string.audio_effects),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Audio Normalization toggle
+            //AudioSettingRow(
+            //    title = context.getString(R.string.audio_normalization),
+            //    description = context.getString(R.string.audio_normalization_desc),
+            //    enabled = audioNormalization,
+            //    onToggle = {
+            //        HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
+            //        onAudioNormalizationChange(it)
+            //    }
+            //)
+
+            //Spacer(modifier = Modifier.height(16.dp))
+
+            // Replay Gain toggle
+            //AudioSettingRow(
+            //    title = context.getString(R.string.replay_gain),
+            //    description = context.getString(R.string.replay_gain_desc),
+            //    enabled = replayGain,
+            //    onToggle = {
+            //        HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
+            //        onReplayGainChange(it)
+            //    }
+            //)
+
+            //Spacer(modifier = Modifier.height(16.dp))
+
+            //HorizontalDivider(
+            //    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+            //    thickness = 0.5.dp
+            //)
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Equalizer quick toggle
+            AudioSettingRow(
+                title = context.getString(R.string.equalizer),
+                description = context.getString(R.string.settings_equalizer_desc),
+                enabled = equalizerEnabled,
+                onToggle = {
+                    HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
+                    onEqualizerEnabledChange(it)
+                }
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Bass Boost toggle + strength slider
+            AudioSettingRow(
+                title = context.getString(R.string.bass_boost),
+                description = context.getString(R.string.bass_boost_desc),
+                enabled = bassBoostEnabled,
+                onToggle = {
+                    HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
+                    onBassBoostEnabledChange(it)
+                }
+            )
+            AnimatedVisibility(visible = bassBoostEnabled) {
+                Column {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = context.getString(R.string.strength),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.weight(1f)
+                        )
+                        Text(
+                            text = "${bassBoostStrength / 10}%",
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                    Slider(
+                        value = bassBoostStrength.toFloat(),
+                        onValueChange = { onBassBoostStrengthChange(it.toInt()) },
+                        valueRange = 0f..1000f,
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = SliderDefaults.colors(
+                            thumbColor = MaterialTheme.colorScheme.primary,
+                            activeTrackColor = MaterialTheme.colorScheme.primary,
+                            inactiveTrackColor = MaterialTheme.colorScheme.surfaceVariant
+                        )
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Virtualizer toggle + strength slider
+            AudioSettingRow(
+                title = context.getString(R.string.virtualizer),
+                description = context.getString(R.string.virtualizer_desc),
+                enabled = virtualizerEnabled,
+                onToggle = {
+                    HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
+                    onVirtualizerEnabledChange(it)
+                }
+            )
+            AnimatedVisibility(visible = virtualizerEnabled) {
+                Column {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = context.getString(R.string.strength),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.weight(1f)
+                        )
+                        Text(
+                            text = "${virtualizerStrength / 10}%",
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                    Slider(
+                        value = virtualizerStrength.toFloat(),
+                        onValueChange = { onVirtualizerStrengthChange(it.toInt()) },
+                        valueRange = 0f..1000f,
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = SliderDefaults.colors(
+                            thumbColor = MaterialTheme.colorScheme.primary,
+                            activeTrackColor = MaterialTheme.colorScheme.primary,
+                            inactiveTrackColor = MaterialTheme.colorScheme.surfaceVariant
+                        )
+                    )
+                }
+            }
+
+            // Open EQ settings link
+            if (onNavigateToEqualizer != null) {
+                Spacer(modifier = Modifier.height(16.dp))
+                HorizontalDivider(
+                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+                    thickness = 0.5.dp
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(8.dp))
+                        .clickable { onNavigateToEqualizer.invoke() }
+                        .padding(vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    Icon(
+                        imageVector = RhythmIcons.Equalizer,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = context.getString(R.string.open_equalizer_settings),
+                        style = MaterialTheme.typography.bodySmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(4.dp))
+                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.08f))
+                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                    )
+                }
+            }
+        }
     }
 }
 

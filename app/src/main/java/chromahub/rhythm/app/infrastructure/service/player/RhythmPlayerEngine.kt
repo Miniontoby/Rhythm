@@ -399,9 +399,11 @@ class RhythmPlayerEngine(
         // Transfer playback settings
         val repeatModeToTransfer = outgoingPlayer.repeatMode
         val shuffleModeToTransfer = outgoingPlayer.shuffleModeEnabled
+        val playbackParamsToTransfer = outgoingPlayer.playbackParameters
         incomingPlayer.repeatMode = repeatModeToTransfer
         incomingPlayer.shuffleModeEnabled = shuffleModeToTransfer
-        Log.d(TAG, "Transferred playback settings: repeat=$repeatModeToTransfer, shuffle=$shuffleModeToTransfer")
+        incomingPlayer.playbackParameters = playbackParamsToTransfer
+        Log.d(TAG, "Transferred playback settings: repeat=$repeatModeToTransfer, shuffle=$shuffleModeToTransfer, speed=${playbackParamsToTransfer.speed}, pitch=${playbackParamsToTransfer.pitch}")
 
         // Swap the player references
         outgoingPlayer.removeListener(masterPlayerListener)

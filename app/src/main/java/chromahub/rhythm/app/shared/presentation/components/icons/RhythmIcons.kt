@@ -258,6 +258,7 @@ object RhythmIcons {
     val AppsGrid = Actions.Apps
     val Refresh = Actions.Refresh
     val Telegram = Icons.AutoMirrored.Rounded.Chat // Added Telegram icon
+    val Equalizer = Player.Equalizer // Equalizer icon for audio effects
     val Pushpin = Actions.Pushpin // Added Pushpin icon
     val PinOutline = Actions.PinOutline // Added PinOutline icon
     val ArrowUpward = Actions.ArrowUpward // Added ArrowUpward icon
