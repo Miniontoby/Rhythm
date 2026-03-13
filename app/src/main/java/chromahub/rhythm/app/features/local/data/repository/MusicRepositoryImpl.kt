@@ -670,8 +670,10 @@ class MusicRepository(context: Context) {
                 cachedSongs = songs
                 cacheTimestamp = System.currentTimeMillis()
                 
-                // Persist to Room for instant restore on next app launch
-                persistSongCacheToDisk()
+                // Persist to Room synchronously so other initialization tasks can safely use the DB
+                Log.d(TAG, "Persisting ${songs.size} songs to disk cache synchronously before proceeding")
+                _scanProgress.value = ScanProgress(songs.size, count, "Saving Database", 0)
+                saveSongsToRoom(songs, clearArtistCache = true)
                 
                 // Update scan progress to complete
                 _scanProgress.value = ScanProgress(songs.size, count, "Complete", duration)
