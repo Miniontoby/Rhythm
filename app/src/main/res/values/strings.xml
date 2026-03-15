@@ -1192,7 +1192,7 @@
     <string name="settings_haptic_feedback">Haptic Feedback</string>
     <string name="settings_haptic_feedback_desc">Tap feedback</string>
     <string name="settings_section_queue_playback">Queue &amp; Playback</string>
-    <string name="settings_section_audio_lyrics">Audio &amp; Lyrics</string>
+    <string name="settings_section_audio_lyrics">Audio &amp; Effects</string>
     <string name="settings_section_audio_playback">Audio &amp; Playback</string>
     <string name="settings_system_volume">System Volume</string>
     <string name="settings_system_volume_desc">System audio</string>
@@ -2540,8 +2540,161 @@
     <string name="settings_bit_perfect_mode_desc_native">Native sample rate, no resampling. Restart required.</string>
     <string name="settings_song_ratings">Song Ratings</string>
     <string name="settings_song_ratings_desc">Enable or disable song rating system</string>
+    <!-- Gestures Search Strings -->
+    <string name="settings_gesture_miniplayer_swipe">MiniPlayer Swipe Gestures</string>
+    <string name="settings_gesture_miniplayer_swipe_desc">Open, dismiss, skip swipe</string>
+    <string name="settings_gesture_player_dismiss">Swipe Down to Dismiss</string>
+    <string name="settings_gesture_player_dismiss_desc">Swipe down to close</string>
+    <string name="settings_gesture_artwork_swipe">Swipe Artwork for Tracks</string>
+    <string name="settings_gesture_artwork_swipe_desc">Swipe artwork to skip</string>
+    <string name="settings_gesture_double_tap">Double Tap Artwork</string>
+    <string name="settings_gesture_double_tap_desc">Double tap play/pause</string>
+
+    <!-- Queue & Playback Search Strings -->
+    <string name="settings_queue_auto_add">Auto Add to Queue</string>
+    <string name="settings_queue_auto_add_desc">Auto-add songs</string>
+    <string name="settings_queue_clear_on_new">Clear Queue on New Song</string>
+    <string name="settings_queue_clear_on_new_desc">Clear on new song</string>
+
+    <string name="settings_queue_action_dialog_desc">Prompt when queue full</string>
+    <string name="settings_queue_repeat_persistence">Remember Repeat Mode</string>
+    <string name="settings_queue_repeat_persistence_desc">Save repeat mode</string>
+    <string name="settings_queue_shuffle_persistence">Remember Shuffle Mode</string>
+    <string name="settings_queue_shuffle_persistence_desc">Save shuffle mode</string>
+    <string name="settings_queue_stop_on_close">Stop Playback on App Close</string>
+    <string name="settings_queue_stop_on_close_desc">Stop on app close</string>
+    <string name="settings_sleep_timer_search">Sleep Timer</string>
+    <string name="settings_sleep_timer_search_desc">Auto-stop playback</string>
+    <string name="settings_queue_hours_format">Use Hours in Time Format</string>
+    <string name="settings_queue_hours_format_desc">Hours in time format</string>
+    <string name="settings_queue_persistence">Remember Queue</string>
+    <string name="settings_queue_persistence_desc">Restore queue on start</string>
+    <string name="settings_playlist_action_dialog_desc">Playlist click action</string>
+
+
+    <!-- Experimental Features Search Strings -->
+    <string name="settings_exp_music_mode">Music Mode</string>
+    <string name="settings_exp_music_mode_desc">Local files or streaming</string>
+    <string name="settings_exp_festive_theme">Festive Theme</string>
+    <string name="settings_exp_festive_theme_desc">Festive decorations</string>
+    <string name="settings_exp_auto_detect_holidays">Auto-Detect Holidays</string>
+    <string name="settings_exp_auto_detect_holidays_desc">Auto-show holiday themes</string>
+    <string name="settings_exp_ignore_mediastore">Ignore MediaStore Covers</string>
+    <string name="settings_exp_ignore_mediastore_desc">Direct art extraction</string>
+    <string name="settings_exp_codec_monitoring">Codec Monitoring</string>
+    <string name="settings_exp_codec_monitoring_desc">Log audio info</string>
+    <string name="settings_exp_audio_device_logging">Audio Device Logging</string>
+    <string name="settings_exp_audio_device_logging_desc">Log device changes</string>
+    <string name="settings_exp_launch_onboarding">Launch Onboarding</string>
+    <string name="settings_exp_launch_onboarding_desc">Relaunch onboarding</string>
+    <string name="settings_exp_test_crash">Test Crash</string>
+    <string name="settings_exp_test_crash_desc">Force app crash</string>
+    <string name="settings_scrobbling_enabled">Enable Scrobbling</string>
+    <string name="settings_scrobbling_enabled_desc">Last.fm integration</string>
+    <string name="settings_discord_enabled_search">Enable Discord Rich Presence</string>
+    <string name="settings_discord_enabled_search_desc">Discord activity status</string>
+    <string name="settings_broadcast_status_enabled">Enable Status Broadcasting</string>
+    <string name="settings_broadcast_status_enabled_desc">Broadcast play status</string>
+    <string name="settings_exp_cellular_streaming">Allow Cellular Streaming</string>
+    <string name="settings_exp_cellular_streaming_desc">Mobile data streaming</string>
+
+    <!-- Home Screen Search Strings -->
+    <string name="settings_home_section_order">Section Order</string>
+    <string name="settings_home_section_order_desc">Reorder home sections</string>
+    <string name="settings_home_greeting_search">Show Greeting</string>
+    <string name="settings_home_greeting_search_desc">Show greeting message</string>
+    <string name="settings_home_recently_played">Recently Played</string>
+    <string name="settings_home_recently_played_desc">Show recently played</string>
+    <string name="settings_home_discover_carousel">Discover Carousel</string>
+    <string name="settings_home_discover_carousel_desc">Show discover carousel</string>
+    <string name="settings_home_carousel_auto_scroll">Carousel Auto Scroll</string>
+    <string name="settings_home_carousel_auto_scroll_desc">Auto-scroll carousel</string>
+
+    <!-- Notifications Search Strings -->
+    <string name="settings_notifications_custom">Custom Notifications</string>
+    <string name="settings_notifications_custom_desc">Custom style for controls</string>
+
+    <!-- Expressive Shapes Search Strings -->
+    <string name="settings_expressive_shapes_enabled">Expressive Shapes</string>
+    <string name="settings_expressive_shapes_enabled_search_desc">Custom UI shapes</string>
+    <string name="settings_shape_preset">Shape Preset</string>
+    <string name="settings_shape_preset_desc">Predefined shape collections</string>
+    <string name="settings_shape_album_art">Album Artwork Shape</string>
+    <string name="settings_shape_album_art_desc">Album artwork shape</string>
+    <string name="settings_shape_player_art">Player Artwork Shape</string>
+    <string name="settings_shape_player_art_desc">Player artwork shape</string>
+    <string name="settings_shape_song_art">Song Artwork Shape</string>
+    <string name="settings_shape_song_art_desc">Song artwork shape</string>
+    <string name="settings_shape_playlist_art">Playlist Artwork Shape</string>
+    <string name="settings_shape_playlist_art_desc">Playlist cover shape</string>
+    <string name="settings_shape_artist_art">Artist Artwork Shape</string>
+    <string name="settings_shape_artist_art_desc">Artist image shape</string>
+    <string name="settings_shape_player_controls">Player Controls Shape</string>
+    <string name="settings_shape_player_controls_desc">Player controls shape</string>
+    <string name="settings_shape_mini_player">Mini Player Shape</string>
+    <string name="settings_shape_mini_player_desc">Mini player shape</string>
+
     <string name="settings_library_settings">Library</string>
-    <string name="settings_library_settings_desc">Song ratings, artwork and display options</string>
+    <string name="settings_library_settings_desc">Ratings, display options</string>
+
+    <!-- Theme Customization Search Strings -->
+    <string name="settings_theme_follow_system">Follow System Theme</string>
+    <string name="settings_theme_follow_system_desc">Auto light/dark mode</string>
+    <string name="settings_theme_dark_mode">Dark Mode</string>
+    <string name="settings_theme_dark_mode_desc">Manual dark mode</string>
+    <string name="settings_theme_color_source">Color Source</string>
+    <string name="settings_theme_color_source_desc">Album art, system, custom</string>
+    <string name="settings_theme_color_schemes">Color Schemes</string>
+    <string name="settings_theme_color_schemes_desc">Predefined color palettes</string>
+    <string name="settings_theme_font_source">Font Source</string>
+    <string name="settings_theme_font_source_desc">System or custom fonts</string>
+    <string name="settings_theme_import_font">Import Custom Font</string>
+    <string name="settings_theme_import_font_desc">Import your own font file (.ttf, .otf)</string>
+
+    <!-- Player Customization Search Strings -->
+    <string name="settings_player_chip_order">Chip Order &amp; Visibility</string>
+    <string name="settings_player_chip_order_desc">Customize and reorder player action chips</string>
+    <string name="settings_lyrics_show_translation">Show Translation</string>
+    <string name="settings_lyrics_show_translation_desc">Display translated lyrics when available</string>
+    <string name="settings_lyrics_show_romanization">Show Romanization</string>
+    <string name="settings_lyrics_show_romanization_desc">Display romanized lyrics when available</string>
+
+    <string name="settings_embed_lyrics_in_file">Embed Lyrics in File</string>
+    <string name="settings_embed_lyrics_in_file_desc">Write lyrics directly into audio file metadata</string>
+    <string name="settings_playback_pitch">Playback Pitch</string>
+    <string name="settings_playback_pitch_desc">Adjust audio pitch independently from speed</string>
+
+    <string name="settings_player_gradient">Gradient Overlay</string>
+    <string name="settings_player_gradient_desc">Show gradient overlay on album artwork</string>
+    <string name="settings_player_seek_buttons">Seek Buttons</string>
+    <string name="settings_player_seek_buttons_desc">Show 10-second skip forward/backward buttons</string>
+    <string name="settings_player_text_alignment">Text Alignment</string>
+    <string name="settings_player_text_alignment_desc">Choose text alignment (Left, Center, Right)</string>
+    <string name="settings_player_progress_style">Progress Style</string>
+    <string name="settings_player_progress_style_desc">Choose progress bar style</string>
+    <string name="settings_player_artwork_radius">Artwork Corner Radius</string>
+    <string name="settings_player_artwork_radius_desc">Adjust album artwork corner roundness</string>
+    <string name="settings_player_quality_badges">Audio Quality Badges</string>
+    <string name="settings_player_quality_badges_desc">Display codec and bitrate information</string>
+
+    <!-- MiniPlayer Customization Search Strings -->
+    <string name="settings_miniplayer_show_progress">Show Progress</string>
+    <string name="settings_miniplayer_show_progress_desc">Display progress indicator in mini player</string>
+    <string name="settings_miniplayer_circular_progress">Circular Progress</string>
+    <string name="settings_miniplayer_circular_progress_desc">Use circular progress on play/pause button</string>
+    <string name="settings_miniplayer_progress_style">Progress Style</string>
+    <string name="settings_miniplayer_progress_style_desc">Choose mini player progress bar style</string>
+    <string name="settings_miniplayer_show_artwork">Show Artwork</string>
+    <string name="settings_miniplayer_show_artwork_desc">Display album artwork in mini player</string>
+    <string name="settings_miniplayer_artwork_size">Artwork Size</string>
+    <string name="settings_miniplayer_artwork_size_desc">Adjust album artwork size in mini player</string>
+    <string name="settings_miniplayer_corner_radius">Corner Radius</string>
+    <string name="settings_miniplayer_corner_radius_desc">Adjust mini player corner roundness</string>
+    <string name="settings_miniplayer_show_time">Show Time</string>
+    <string name="settings_miniplayer_show_time_desc">Display playback time in mini player</string>
+    <string name="settings_miniplayer_tablet_layout">Tablet Layout on Phone</string>
+    <string name="settings_miniplayer_tablet_layout_desc">Use tablet-style miniplayer on phones</string>
+
 
     <!-- Library Screen scanning overlay -->
     <string name="settings_scanning">Scanning</string>
