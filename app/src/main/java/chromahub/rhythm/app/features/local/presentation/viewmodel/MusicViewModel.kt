@@ -157,6 +157,13 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     private val _lyricsTimeOffset = MutableStateFlow(0)
     val lyricsTimeOffset: StateFlow<Int> = _lyricsTimeOffset.asStateFlow()
 
+    private val _bluetoothLyricsEnabled = MutableStateFlow(appSettings.isBluetoothLyricsEnabled())
+    val bluetoothLyricsEnabled: StateFlow<Boolean> = _bluetoothLyricsEnabled.asStateFlow()
+    fun setBluetoothLyricsEnabled(enabled: Boolean) {
+    	appSettings.setBluetoothLyricsEnabled(enabled)
+    	_bluetoothLyricsEnabled.value = enabled
+    }
+    
     // New helper methods
     private val _serviceConnected = MutableStateFlow(false)
     val serviceConnected: StateFlow<Boolean> = _serviceConnected.asStateFlow()
