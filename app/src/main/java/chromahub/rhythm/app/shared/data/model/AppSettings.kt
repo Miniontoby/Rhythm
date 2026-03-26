@@ -72,6 +72,7 @@ class AppSettings private constructor(context: Context) {
         private const val KEY_SHOW_LYRICS_TRANSLATION = "show_lyrics_translation"
         private const val KEY_SHOW_LYRICS_ROMANIZATION = "show_lyrics_romanization"
         private const val KEY_KEEP_SCREEN_ON_LYRICS = "keep_screen_on_lyrics"
+        private const val KEY_BLUETOOTH_LYRICS = "bluetooth_lyrics_enabled"
         
         // Theme Settings
         private const val KEY_USE_SYSTEM_THEME = "use_system_theme"
@@ -1326,6 +1327,11 @@ private val _autoCheckForUpdates = MutableStateFlow(prefs.getBoolean(KEY_AUTO_CH
     fun setKeepScreenOnLyrics(enabled: Boolean) {
         prefs.edit().putBoolean(KEY_KEEP_SCREEN_ON_LYRICS, enabled).apply()
         _keepScreenOnLyrics.value = enabled
+    }
+
+    fun isBluetoothLyricsEnabled(): Boolean = prefs.getBoolean(KEY_BLUETOOTH_LYRICS, false)
+    fun setBluetoothLyricsEnabled(enabled: Boolean) {
+    	prefs.edit().putBoolean(KEY_BLUETOOTH_LYRICS, enabled).apply()
     }
     
     // Theme Settings Methods
