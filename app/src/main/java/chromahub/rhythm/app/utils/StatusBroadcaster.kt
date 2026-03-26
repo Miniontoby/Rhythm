@@ -58,9 +58,9 @@ class StatusBroadcaster(private val context: Context) {
             val intent = Intent(ACTION_META_CHANGED).apply {
                 // Standard metadata
                 putExtra(EXTRA_ID, song.id.hashCode().toLong())
-                putExtra(EXTRA_ARTIST, song.artist)
+                putExtra(EXTRA_ARTIST, song.title + " - " + song.artist)
                 putExtra(EXTRA_ALBUM, song.album)
-                putExtra(EXTRA_TRACK, song.title)
+                putExtra(EXTRA_TRACK, "No lyrics found")
                 putExtra(EXTRA_DURATION, song.duration)
                 putExtra(EXTRA_POSITION, position)
                 
